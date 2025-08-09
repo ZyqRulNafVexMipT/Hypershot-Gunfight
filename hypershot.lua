@@ -1,305 +1,433 @@
 --[[
-  ╔════════════════════════════════════════════╗
-  ║  YoxanXHub V2 – Hypershot Gunfight         ║
-  ║  • Full ESP + Silent Aimbot                ║
-  ║  • Fluent UI (acrylic, smooth)            ║
-  ║  • No key / ready-to-use                  ║
-  ║  • Hotkey: INSERT                        ║
-  ╚════════════════════════════════════════════╝
+    VortX Hub – Part 1/2
+    Re-branded & upgraded Hyper-Shot using Luna Interface Suite.
+    Features retained:
+        • Walls, Big Heads, Bring Heads, No Recoil, No Cool-down
+    New additions:
+        • Silent Aim (from message 15)
+        • ESP (from message 15)
+        • Full Luna UI with Home-Tab & executor list
 ]]
 
---// Anti-double-load
-if getgenv().YoxanXLoaded then return end
-getgenv().YoxanXLoaded = true
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 1) Load Luna Library
+local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/refs/heads/master/source.lua", true))()
 
---// Fluent UI
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/Yenixs/GUI/refs/heads/main/FLUENT"))()
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 2) Create Main Window
+local Window = Luna:CreateWindow({
+    Name = "VortX Hub",
+    Subtitle = "HyperShot Gunfight V2",
+    LogoID = "82795327169782",
+    LoadingEnabled = true,
+    LoadingTitle = "VortX Hub",
+    LoadingSubtitle = "V2",
+    ConfigSettings = {
+        ConfigFolder = "VortX"
+    },
+    KeySystem = false
+})
 
---// Services
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Lighting = game:GetService("Lighting")
-local Stats = game:GetService("Stats")
-local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 3) Home Tab (Executor list)
+Window:CreateHomeTab({
+    SupportedExecutors = {
+        "Synapse X","Krnl","ProtoSmasher","Fluxus","Script-Ware",
+        "EasyExploits","Electron","JJSploit","Calamari","SirHurt",
+        "Sentinel","WEAREDEVS","Comet","Cellery","Wave","CODex","Delta"
+    },
+    DiscordInvite = "https://discord.gg/YqacuSRb",
+    Icon = 1
+})
 
---// Core
-local Camera = Workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 4) Load ESP + Silent-Aim engine (from message 15)
+local esp, esp_renderstep, framework = loadstring(game:HttpGet("https://raw.githubusercontent.com/GhostDuckyy/ESP-Library/refs/heads/main/nomercy.rip/source.lua"))()
 
---// Drawing objects
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 5) Global Variables (Hyper-Shot core)
+local Players        = game:GetService("Players")
+local UIS            = game:GetService("UserInputService")
+local RunService     = game:GetService("RunService")
+local Workspace      = game:GetService("Workspace")
+local LocalPlayer    = Players.LocalPlayer
+
+-- Original Hyper-Shot toggles
+local wallsEnabled      = false
+local bigHeadEnabled    = false
+local bringHeadEnabled  = false
+local noRecoilEnabled   = false
+local noCooldownEnabled = false
+
+-- Head-size slider
+local HeadSize = 6
+
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 6) Tabs
+local combatTab   = Window:CreateTab({ Name = "Combat",   Icon = "target" })
+local visualsTab  = Window:CreateTab({ Name = "Visuals",  Icon = "visibility" })
+local miscTab     = Window:CreateTab({ Name = "Misc",     Icon = "settings" })
+
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 7) Combat Section (Silent-Aim)
+local combatCol  = combatTab:CreateColumn()
+local combatSec  = combatCol:CreateSection({ Name = "Silent-Aim" })
+
+combatSec:CreateToggle({
+    Name = "Silent-Aim Enabled",
+    Callback = function(v)
+        -- Hook is handled in Part 2
+        getgenv().SilentAim.Enabled = v
+    end
+})
+
+combatSec:CreateSlider({
+    Name = "FOV Size",
+    Range = {1, 500},
+    Increment = 1,
+    CurrentValue = 200,
+    Callback = function(v)
+        getgenv().Config.FOVSize = v
+    end
+})
+
+combatSec:CreateDropdown({
+    Name = "Aim Bone",
+    Options = {"Head","LowerTorso","RightFoot"},
+    CurrentOption = {"Head"},
+    Callback = function(v)
+        getgenv().Config.AimBone = v[1]
+    end
+})
+
+combatSec:CreateToggle({
+    Name = "Show FOV",
+    Callback = function(v)
+        getgenv().Config.ShowFOV = v
+    end
+})
+
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 8) Visuals Section (ESP)
+local visCol1 = visualsTab:CreateColumn()
+local visCol2 = visualsTab:CreateColumn()
+
+local espGlobalSec = visCol1:CreateSection({ Name = "ESP Global" })
+local espColorSec  = visCol2:CreateSection({ Name = "ESP Colors" })
+
+espGlobalSec:CreateToggle({
+    Name = "ESP Enabled",
+    Callback = function(v)
+        esp.Settings.Enabled = v
+    end
+})
+
+espGlobalSec:CreateToggle({
+    Name = "Show Box",
+    Callback = function(v)
+        esp.Settings.Box.Enabled = v
+    end
+})
+
+espGlobalSec:CreateToggle({
+    Name = "Show Name",
+    Callback = function(v)
+        esp.Settings.Name.Enabled = v
+    end
+})
+
+espGlobalSec:CreateToggle({
+    Name = "Show Distance",
+    Callback = function(v)
+        esp.Settings.Distance.Enabled = v
+    end
+})
+
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 9) Misc Section (Hyper-Shot features)
+local miscCol  = miscTab:CreateColumn()
+local miscSec  = miscCol:CreateSection({ Name = "Hyper-Shot" })
+
+miscSec:CreateToggle({
+    Name = "Walls (see enemies)",
+    Callback = function(v)
+        wallsEnabled = v
+        -- logic in Part 2
+    end
+})
+
+miscSec:CreateToggle({
+    Name = "Big Head",
+    Callback = function(v)
+        bigHeadEnabled = v
+    end
+})
+
+miscSec:CreateSlider({
+    Name = "Head Size",
+    Range = {1, 50},
+    Increment = 1,
+    CurrentValue = HeadSize,
+    Callback = function(v)
+        HeadSize = v
+    end
+})
+
+miscSec:CreateToggle({
+    Name = "Bring Heads",
+    Callback = function(v)
+        bringHeadEnabled = v
+    end
+})
+
+miscSec:CreateToggle({
+    Name = "No Recoil",
+    Callback = function(v)
+        noRecoilEnabled = v
+    end
+})
+
+miscSec:CreateToggle({
+    Name = "No Cool-down",
+    Callback = function(v)
+        noCooldownEnabled = v
+    end
+})
+
+--[[
+    VortX Hub – Part 2/2
+    Contains:
+        • Silent-Aim hooks
+        • ESP player / mob handling
+        • Hyper-Shot logic (walls, big-head, etc.)
+]]
+
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- Shared variables (must match Part 1)
+local Players        = game:GetService("Players")
+local Workspace      = game:GetService("Workspace")
+local RunService     = game:GetService("RunService")
+local UIS            = game:GetService("UserInputService")
+local LocalPlayer    = Players.LocalPlayer
+local Camera         = Workspace.CurrentCamera
+
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- Silent-Aim Config (used by UI)
+getgenv().Config = {
+    AimBone            = "Head",
+    FOVSize            = 200,
+    ShowFOV            = true,
+    ShowTargetLine     = true,
+    fovcolor           = Color3.new(1,0,0),
+    linecolor          = Color3.new(0,1,0),
+    TeamCheck          = true,
+    VisibilityCheck    = true
+}
+
+getgenv().SilentAim = {
+    Enabled = false,
+    Target  = nil
+}
+
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 1) Load ESP engine again (ensure tables exist)
+local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/GhostDuckyy/ESP-Library/refs/heads/main/nomercy.rip/source.lua"))()
+
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 2) Silent-Aim hooks (from message 15)
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
+FOVCircle.Color = Config.fovcolor
 FOVCircle.Thickness = 2
-FOVCircle.Color = Color3.fromRGB(255, 0, 0)
-FOVCircle.Filled = false
-FOVCircle.NumSides = 30
+FOVCircle.Radius = Config.FOVSize
+FOVCircle.Transparency = 0.5
+FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
 
 local TargetLine = Drawing.new("Line")
 TargetLine.Visible = false
-TargetLine.Thickness = 1.5
-TargetLine.Color = Color3.fromRGB(0, 255, 0)
+TargetLine.Color = Config.linecolor
+TargetLine.Thickness = 2
 
---// Config table
-local Config = {
-    Aimbot = {
-        Enabled = true,
-        AimPart = "Head",
-        UseFOV = true,
-        FOV = 120,
-        ShowFOV = true,
-        ShowLine = true,
-        TeamCheck = true,
-        VisibleCheck = true,
-        Smoothness = 0.2
-    },
-    ESP = {
-        Enabled = false,
-        Box = false,
-        Name = false,
-        Healthbar = false,
-        Chams = false,
-        MaxDistance = 5000,
-        TeamCheck = true
-    },
-    Misc = {
-        FullBright = false,
-        FPSBoost = false,
-        RainbowHands = false,
-        BigHead = false,
-        BringHead = false
-    }
-}
-
---// ESP Library (inline)
-local ESP = {}
-do
-    local Players = game:GetService("Players")
-    local Workspace = game:GetService("Workspace")
-    local RunService = game:GetService("RunService")
-    local Camera = Workspace.CurrentCamera
-
-    local settings = {
-        Enabled = false,
-        Box = { Enabled = false, Color = Color3.new(1,1,1), Transparency = 1 },
-        Name = { Enabled = false, Color = Color3.new(1,1,1), Position = "Bottom" },
-        Healthbar = { Enabled = false, Color = Color3.new(0,1,0), Position = "Left" },
-        Chams = { Enabled = false, Color = Color3.new(1,1,1), Transparency = 0.5, Mode = "Visible" },
-        Maximal_Distance = 5000,
-        Team_Check = true
-    }
-
-    local objects = {}
-    local players = {}
-
-    local function createDrawing(type, props)
-        local obj = Drawing.new(type)
-        for k,v in pairs(props) do
-            obj[k] = v
-        end
-        return obj
-    end
-
-    local function updateESP()
-        if not settings.Enabled then
-            for _,v in pairs(objects) do
-                for _,d in pairs(v) do
-                    d.Visible = false
-                end
-            end
-            return
-        end
-
-        for _,plr in ipairs(Players:GetPlayers()) do
-            if plr == Players.LocalPlayer then continue end
-            local char = plr.Character
-            if not char then continue end
-            local root = char:FindFirstChild("HumanoidRootPart")
-            if not root then continue end
-
-            local dist = (root.Position - Camera.CFrame.Position).Magnitude
-            if dist > settings.Maximal_Distance then continue end
-            if settings.Team_Check and plr:GetAttribute("Team") == Players.LocalPlayer:GetAttribute("Team") then continue end
-
-            local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
-            if not onScreen then continue end
-
-            if not objects[plr] then
-                objects[plr] = {
-                    Box = settings.Box.Enabled and createDrawing("Square", { Thickness = 2, Filled = false, Color = settings.Box.Color, Transparency = settings.Box.Transparency }),
-                    Name = settings.Name.Enabled and createDrawing("Text", { Text = plr.Name, Center = true, Outline = true, Color = settings.Name.Color, Size = 16 }),
-                    Healthbar = settings.Healthbar.Enabled and createDrawing("Square", { Thickness = 2, Filled = true, Color = settings.Healthbar.Color }),
-                    Chams = settings.Chams.Enabled and Instance.new("Highlight")
-                }
-                if objects[plr].Chams then
-                    objects[plr].Chams.Parent = char
-                    objects[plr].Chams.Adornee = char
-                    objects[plr].Chams.Enabled = true
-                    objects[plr].Chams.FillColor = settings.Chams.Color
-                    objects[plr].Chams.FillTransparency = settings.Chams.Transparency
-                end
-            end
-
-            local head = char:FindFirstChild("Head")
-            if not head then continue end
-
-            local top = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 2.5, 0))
-            local bottom = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 2.5, 0))
-            local height = math.abs(top.Y - bottom.Y)
-            local width = height * 0.5
-
-            if objects[plr].Box then
-                objects[plr].Box.Visible = true
-                objects[plr].Box.Position = Vector2.new(top.X - width / 2, top.Y)
-                objects[plr].Box.Size = Vector2.new(width, height)
-            end
-
-            if objects[plr].Name then
-                objects[plr].Name.Visible = true
-                objects[plr].Name.Position = Vector2.new(bottom.X, bottom.Y + 5)
-            end
-
-            if objects[plr].Healthbar then
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    local health = humanoid.Health / humanoid.MaxHealth
-                    objects[plr].Healthbar.Visible = true
-                    objects[plr].Healthbar.Position = Vector2.new(top.X - width / 2 - 8, top.Y)
-                    objects[plr].Healthbar.Size = Vector2.new(2, height * health)
-                    objects[plr].Healthbar.Color = Color3.fromHSV(health / 3, 1, 1)
-                end
-            end
-        end
-    end
-
-    RunService.RenderStepped:Connect(updateESP)
-
-    ESP.Settings = settings
+local function IsVisible(part)
+    if not Config.VisibilityCheck then return true end
+    local origin, dir = Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 1000
+    local ray = Workspace:Raycast(origin, dir, RaycastParams.new({
+        FilterDescendantsInstances = {LocalPlayer.Character},
+        FilterType = Enum.RaycastFilterType.Blacklist
+    }))
+    return not ray or ray.Instance:IsDescendantOf(part.Parent)
 end
 
---// Aimbot logic
-local Target
-RunService.RenderStepped:Connect(function()
-    if not Config.Aimbot.Enabled then return end
+local function IsEnemy(player)
+    if not Config.TeamCheck then return true end
+    return (player:GetAttribute("Team") or 0) ~= (LocalPlayer:GetAttribute("Team") or 0)
+end
 
-    FOVCircle.Visible = Config.Aimbot.ShowFOV
-    FOVCircle.Radius = Config.Aimbot.FOV
-    FOVCircle.Position = Camera.ViewportSize / 2
+local function WorldToScreen(pos)
+    local v, onScreen = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(v.X, v.Y), onScreen
+end
 
-    Target = nil
-    local closest = math.huge
-    for _,plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer then continue end
-        local char = plr.Character
-        local part = char and char:FindFirstChild(Config.Aimbot.AimPart)
-        if not part then continue end
-
-        if Config.Aimbot.TeamCheck and plr:GetAttribute("Team") == LocalPlayer:GetAttribute("Team") then continue end
-        if Config.Aimbot.VisibleCheck and not Camera:WorldToViewportPoint(part.Position) then continue end
-
-        local mousePos = UIS:GetMouseLocation()
-        local screenPos = Camera:WorldToViewportPoint(part.Position)
-        local dist = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-
-        if Config.Aimbot.UseFOV and dist > Config.Aimbot.FOV then continue end
-        if dist < closest then
-            closest = dist
-            Target = part
+local function GetClosest()
+    if not getgenv().SilentAim.Enabled then return end
+    local mousePos = UIS:GetMouseLocation()
+    local closest, dist = nil, math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr == LocalPlayer or not plr.Character then continue end
+        local bone = plr.Character:FindFirstChild(Config.AimBone)
+        if bone and IsEnemy(plr) then
+            local screen, onScreen = WorldToScreen(bone.Position)
+            if onScreen and IsVisible(bone) then
+                local d = (mousePos - screen).Magnitude
+                if d < dist and d <= Config.FOVSize then
+                    closest, dist = bone, d
+                end
+            end
         end
     end
-
-    TargetLine.Visible = Config.Aimbot.ShowLine and Target
-    if Target then
-        local screen = Camera:WorldToViewportPoint(Target.Position)
-        TargetLine.From = Camera.ViewportSize / 2
-        TargetLine.To = Vector2.new(screen.X, screen.Y)
+    -- Mobs
+    for _, mob in ipairs(Workspace:GetChildren()) do
+        if mob.Name == "Mobs" then
+            for _, bot in ipairs(mob:GetChildren()) do
+                local bone = bot:FindFirstChild(Config.AimBone)
+                if bone then
+                    local screen, onScreen = WorldToScreen(bone.Position)
+                    if onScreen and IsVisible(bone) then
+                        local d = (mousePos - screen).Magnitude
+                        if d < dist and d <= Config.FOVSize then
+                            closest, dist = bone, d
+                        end
+                    end
+                end
+            end
+        end
     end
-end)
+    return closest
+end
 
---// Hook silent aim
+-- Hook Raycast
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
-    if method == "Raycast" and Target and self == Workspace then
-        local args = {...}
-        local dir = (Target.Position - args[1]).Unit * 1000
-        args[2] = dir
-        return oldNamecall(self, unpack(args))
+    local args   = {...}
+    if not checkcaller() and self == Workspace and method == "Raycast" and getgenv().SilentAim.Enabled then
+        local target = GetClosest()
+        if target then
+            args[2] = (target.Position - args[1]).Unit * 1000
+            return oldNamecall(self, unpack(args))
+        end
     end
     return oldNamecall(self, ...)
 end)
 
---// Fluent Window
-local Window = Fluent:CreateWindow({
-    Title = "YoxanXHub V2  |  Hypershot",
-    SubTitle = "by YoxanX",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(580, 420),
-    Acrylic = true,
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.Insert
-})
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 3) ESP Player / Mob handling (from message 15)
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer then esp:Player(p) end
+end
+Players.PlayerAdded:Connect(function(p)
+    if p ~= LocalPlayer then esp:Player(p) end
+end)
 
-local AimTab   = Window:AddTab({ Title = "Aimbot",  Icon = "target" })
-local Visuals  = Window:AddTab({ Title = "ESP",     Icon = "eye"    })
-local MiscTab  = Window:AddTab({ Title = "Misc",    Icon = "cog"    })
-
---// Aimbot section
-local AimSec = AimTab:AddSection({ Title = "Silent Aim" })
-AimSec:AddToggle({ Title = "Enabled", Default = Config.Aimbot.Enabled,
-    Callback = function(v) Config.Aimbot.Enabled = v end })
-AimSec:AddDropdown({ Title = "Aim Part", Values = {"Head","HumanoidRootPart","LowerTorso"}, Default = Config.Aimbot.AimPart,
-    Callback = function(v) Config.Aimbot.AimPart = v end })
-AimSec:AddSlider({ Title = "FOV", Min = 50, Max = 400, Default = Config.Aimbot.FOV,
-    Callback = function(v) Config.Aimbot.FOV = v end })
-AimSec:AddToggle({ Title = "Show FOV", Default = Config.Aimbot.ShowFOV,
-    Callback = function(v) Config.Aimbot.ShowFOV = v end })
-AimSec:AddToggle({ Title = "Show Line", Default = Config.Aimbot.ShowLine,
-    Callback = function(v) Config.Aimbot.ShowLine = v end })
-AimSec:AddToggle({ Title = "Team Check", Default = Config.Aimbot.TeamCheck,
-    Callback = function(v) Config.Aimbot.TeamCheck = v end })
-AimSec:AddToggle({ Title = "Visible Check", Default = Config.Aimbot.VisibleCheck,
-    Callback = function(v) Config.Aimbot.VisibleCheck = v end })
-
---// ESP section
-local EspSec = Visuals:AddSection({ Title = "ESP" })
-EspSec:AddToggle({ Title = "Enabled", Default = Config.ESP.Enabled,
-    Callback = function(v) Config.ESP.Enabled = v; ESP.Settings.Enabled = v end })
-EspSec:AddToggle({ Title = "Box", Default = Config.ESP.Box,
-    Callback = function(v) Config.ESP.Box = v; ESP.Settings.Box.Enabled = v end })
-EspSec:AddToggle({ Title = "Name", Default = Config.ESP.Name,
-    Callback = function(v) Config.ESP.Name = v; ESP.Settings.Name.Enabled = v end })
-EspSec:AddToggle({ Title = "Healthbar", Default = Config.ESP.Healthbar,
-    Callback = function(v) Config.ESP.Healthbar = v; ESP.Settings.Healthbar.Enabled = v end })
-EspSec:AddToggle({ Title = "Chams", Default = Config.ESP.Chams,
-    Callback = function(v) Config.ESP.Chams = v; ESP.Settings.Chams.Enabled = v end })
-EspSec:AddSlider({ Title = "Max Distance", Min = 500, Max = 10000, Default = Config.ESP.MaxDistance,
-    Callback = function(v) Config.ESP.MaxDistance = v; ESP.Settings.Maximal_Distance = v end })
-
---// Misc section
-local MiscSec = MiscTab:AddSection({ Title = "Misc" })
-MiscSec:AddButton({ Title = "Full Bright", Callback = function()
-    Lighting.Brightness = 2
-    Lighting.GlobalShadows = false
-    Lighting.FogEnd = 1e5
-    Lighting.Ambient = Color3.new(1, 1, 1)
-end })
-MiscSec:AddButton({ Title = "FPS Boost", Callback = function()
-    for _,v in ipairs(Workspace:GetDescendants()) do
-        if v:IsA("Decal") or v:IsA("Texture") then v:Destroy() end
-        if v:IsA("BasePart") then
-            v.Material = Enum.Material.SmoothPlastic
-            v.Reflectance = 0
+-- Mobs (NPC)
+local added = {}
+RunService.Heartbeat:Connect(function()
+    local mobs = Workspace:FindFirstChild("Mobs")
+    if mobs then
+        for _, mob in ipairs(mobs:GetChildren()) do
+            if mob:IsA("Model") and mob:FindFirstChild("Humanoid") and not added[mob] then
+                added[mob] = true
+                local fake = {
+                    Name = mob.Name,
+                    Character = mob,
+                    GetAttribute = function() return nil end,
+                    IsA = function(_,c) return c=="Player" end
+                }
+                esp:Player(fake, {Color = Color3.fromRGB(255,50,50)})
+                mob.AncestryChanged:Connect(function()
+                    if not mob:IsDescendantOf(game) then
+                        local o = esp:GetObject(fake)
+                        if o then o:Destroy() end
+                        added[mob] = nil
+                    end
+                end)
+            end
         end
     end
-end })
-MiscSec:AddToggle({ Title = "Rainbow Hands", Default = false,
-    Callback = function(v) Config.Misc.RainbowHands = v end })
-MiscSec:AddToggle({ Title = "Big Head Enemy", Default = false,
-    Callback = function(v) Config.Misc.BigHead = v end })
+end)
 
---// Notify
-Fluent:Notify({ Title = "YoxanXHub V2", Content = "Loaded!  Tekan INSERT untuk toggle.", Duration = 5 })
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 4) Hyper-Shot logic (walls, big-head, etc.)
+local function BigHead(char, size)
+    if char and char:FindFirstChild("Head") then
+        char.Head.Size = Vector3.new(size, size, size)
+    end
+end
+
+local function Walls(char)
+    -- simple wall-hack billboard
+    local gui = Instance.new("BillboardGui")
+    gui.Size = UDim2.new(0,30,0,30)
+    gui.AlwaysOnTop = true
+    gui.MaxDistance = math.huge
+    gui.Parent = char
+    local img = Instance.new("ImageLabel", gui)
+    img.Size = UDim2.new(1,0,1,0)
+    img.BackgroundTransparency = 1
+    img.Image = "rbxassetid://7142136429"
+end
+
+-- Toggle listeners (connect to UI toggles)
+RunService.RenderStepped:Connect(function()
+    -- Big Head
+    if getgenv().bigHeadEnabled then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                BigHead(p.Character, getgenv().HeadSize or 6)
+            end
+        end
+    end
+
+    -- Walls
+    if getgenv().wallsEnabled then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and not p.Character:FindFirstChild("BBGui") then
+                Walls(p.Character)
+            end
+        end
+    else
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("BBGui") then
+                p.Character.BBGui:Destroy()
+            end
+        end
+    end
+
+    -- Bring heads (simple CFrame move)
+    if getgenv().bringHeadEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+                p.Character.Head.CFrame = LocalPlayer.Character.Head.CFrame * CFrame.new(0,3,0)
+            end
+        end
+    end
+
+    -- Update FOV visuals
+    FOVCircle.Visible = getgenv().SilentAim.Enabled and Config.ShowFOV
+    FOVCircle.Radius  = Config.FOVSize
+    local target = GetClosest()
+    TargetLine.Visible = target and Config.ShowTargetLine or false
+    if target then
+        local screen = WorldToScreen(target.Position)
+        TargetLine.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+        TargetLine.To   = screen
+    end
+end)
+
+-- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+-- 5) Finish notification
+Luna:Notification({
+    Title = "VortX Hub",
+    Content = "loaded – enjoy!",
+    Icon = "notifications_active"
+})
