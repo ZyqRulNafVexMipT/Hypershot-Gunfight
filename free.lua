@@ -1,249 +1,350 @@
--- Hypershot Gunfight - 1/10 UI
--- Remake mirip Luna tanpa dependensi asset Roblox
--- by: kamu
+-- ╔═══════════════════════════════════════════════════════════════════════╗
+-- ║                        VORTX HYPERSHOT PART 1                         ║
+-- ║           Core, UI, ESP, Key System, Auto Farm, Auto Shoot            ║
+-- ╚═══════════════════════════════════════════════════════════════════════╝
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
-local Tween = game:GetService("TweenService")
-local Run = game:GetService("RunService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
 
-local LocalPlayer = Players.LocalPlayer
-local mouse = LocalPlayer:GetMouse()
+local LP = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 
-local UI = {
-    Flags = {},
-    Options = {},
-    Theme = {
-        Gradient = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(117, 164, 206)),
-            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(123, 201, 201)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(224, 138, 175))
-        })
-    }
+-- ✅ CONFIG
+local CFG = {
+    MasterToggle = true,
+    AutoFarm = false,
+    AutoShoot = false,
+    SilentAim = true,
+    NoClip = false,
+    BringEnemy = false,
+    ESP = true,
+    FOV = 180,
+    Smooth = 0.5,
+    Key = "VortX_HETz62hdwanJDblP",
+    Unlocked = false
 }
 
--- Utility
-local function tween(obj, props, time)
-    time = time or 0.3
-    Tween:Create(obj, TweenInfo.new(time, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), props):Play()
+-- ✅ KEY SYSTEM
+local function checkKey()
+    CFG.Unlocked = (CFG.Key == "VortX_HETz62hdwanJDblP")
+end
+checkKey()
+
+-- ✅ UTILITY
+local function W2S(pos)
+    local screen, on = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(screen.X, screen.Y), on
 end
 
--- Drag
-local function draggable(frame, dragHandle)
-    local dragging, dragInput, startPos, startMouse
-    dragHandle = dragHandle or frame
-
-    dragHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            startMouse = input.Position
-            startPos = frame.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
+local function getClosest()
+    local mousePos = UIS:GetMouseLocation()
+    local closest, dist = nil, math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character then
+            local head = plr.Character:FindFirstChild("Head")
+            if head then
+                local s, on = W2S(head.Position)
+                if on then
+                    local d = (mousePos - s).Magnitude
+                    if d < dist and d <= CFG.FOV then
+                        closest = {plr = plr, bone = head}
+                        dist = d
+                    end
                 end
-            end)
+            end
         end
-    end)
-
-    UIS.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - startMouse
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
+    end
+    return closest
 end
 
--- Main UI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HypershotUI"
-ScreenGui.Parent = game:GetService("CoreGui")
+-- ✅ ESP SYSTEM
+local ESPObjects = {}
+local function createESP(plr)
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "VortX_ESP"
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = plr.Character:WaitForChild("Head")
 
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 450, 0, 300)
-Main.Position = UDim2.new(0.5, -225, 0.5, -150)
-Main.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-Main.BorderSizePixel = 0
-Main.Parent = ScreenGui
-Main.ClipsDescendants = true
+    local frame = Instance.new("Frame", billboard)
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 1
 
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+    local name = Instance.new("TextLabel", frame)
+    name.Size = UDim2.new(1, 0, 0.5, 0)
+    name.Text = plr.Name
+    name.TextColor3 = Color3.fromRGB(255, 255, 255)
+    name.BackgroundTransparency = 1
+    name.Font = Enum.Font.GothamBold
+    name.TextSize = 14
 
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 40)
-TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-TopBar.BorderSizePixel = 0
-TopBar.Parent = Main
+    local health = Instance.new("Frame", frame)
+    health.Size = UDim2.new(1, 0, 0.1, 0)
+    health.Position = UDim2.new(0, 0, 0.6, 0)
+    health.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 
-Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 12)
+    local distance = Instance.new("TextLabel", frame)
+    distance.Size = UDim2.new(1, 0, 0.3, 0)
+    distance.Position = UDim2.new(0, 0, 0.75, 0)
+    distance.Text = "0m"
+    distance.TextColor3 = Color3.fromRGB(255, 255, 255)
+    distance.BackgroundTransparency = 1
+    distance.Font = Enum.Font.Gotham
+    distance.TextSize = 12
+
+    ESPObjects[plr] = {
+        billboard = billboard,
+        health = health,
+        distance = distance
+    }
+end
+
+local function updateESP()
+    for plr, obj in pairs(ESPObjects) do
+        if CFG.ESP and plr.Character and plr.Character:FindFirstChild("Head") then
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+            local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+            if root and humanoid then
+                local dist = math.floor((root.Position - LP.Character.HumanoidRootPart.Position).Magnitude)
+                obj.distance.Text = tostring(dist) .. "m"
+                obj.health.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 0.1, 0)
+                obj.health.BackgroundColor3 = Color3.fromHSV(math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1) * 0.3, 1, 1)
+            end
+        else
+            if obj.billboard then obj.billboard:Destroy() end
+            ESPObjects[plr] = nil
+        end
+    end
+end
+
+-- ✅ UI SYSTEM
+local VortXUI = Instance.new("ScreenGui")
+VortXUI.Name = "VortXUI"
+VortXUI.Parent = CoreGui
+VortXUI.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -225)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Parent = VortXUI
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel")
-Title.Text = "Hypershot Gunfight"
-Title.Font = Enum.Font.SourceSansSemibold
-Title.TextSize = 18
+Title.Text = "VortX Hypershot v2.0"
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Position = UDim2.new(0, 0, 0, 0)
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.BackgroundTransparency = 1
-Title.Size = UDim2.new(1, 0, 1, 0)
-Title.Parent = TopBar
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.Parent = MainFrame
 
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, 0, 1, -40)
-Content.Position = UDim2.new(0, 0, 0, 40)
-Content.BackgroundTransparency = 1
-Content.Parent = Main
+local function createToggle(name, y, flag)
+    local toggle = Instance.new("TextButton")
+    toggle.Size = UDim2.new(0.9, 0, 0, 30)
+    toggle.Position = UDim2.new(0.05, 0, 0, y)
+    toggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    toggle.Text = name .. ": OFF"
+    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggle.Font = Enum.Font.Gotham
+    toggle.TextSize = 14
+    toggle.Parent = MainFrame
+    Instance.new("UICorner", toggle)
 
-local UIList = Instance.new("UIListLayout")
-UIList.Padding = UDim.new(0, 10)
-UIList.Parent = Content
-
-draggable(Main, TopBar)
-
--- Components
-local function createLabel(name)
-    local lbl = Instance.new("TextLabel")
-    lbl.Text = name
-    lbl.Font = Enum.Font.SourceSans
-    lbl.TextSize = 16
-    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-    lbl.BackgroundTransparency = 1
-    lbl.Size = UDim2.new(1, -20, 0, 30)
-    lbl.Parent = Content
-    return lbl
-end
-
-local function createButton(name, callback)
-    local btn = Instance.new("TextButton")
-    btn.Text = name
-    btn.Font = Enum.Font.SourceSans
-    btn.TextSize = 16
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-    btn.BorderSizePixel = 0
-    btn.Size = UDim2.new(1, -20, 0, 35)
-    btn.Parent = Content
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-
-    btn.MouseButton1Click:Connect(function()
-        tween(btn, {BackgroundColor3 = Color3.fromRGB(60, 60, 70)}, 0.1)
-        task.wait(0.1)
-        tween(btn, {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}, 0.1)
-        callback()
+    toggle.MouseButton1Click:Connect(function()
+        CFG[flag] = not CFG[flag]
+        toggle.Text = name .. ": " .. (CFG[flag] and "ON" or "OFF")
     end)
-
-    return btn
 end
 
-local function createToggle(name, default, callback)
-    local toggled = default
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -20, 0, 35)
-    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-    frame.BorderSizePixel = 0
-    frame.Parent = Content
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+createToggle("Auto Farm", 40, "AutoFarm")
+createToggle("Auto Shoot", 80, "AutoShoot")
+createToggle("Silent Aim", 120, "SilentAim")
+createToggle("No Clip", 160, "NoClip")
+createToggle("Bring Enemy", 200, "BringEnemy")
+createToggle("ESP", 240, "ESP")
 
-    local label = Instance.new("TextLabel")
-    label.Text = name
-    label.Font = Enum.Font.SourceSans
-    label.TextSize = 16
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.BackgroundTransparency = 1
-    label.Size = UDim2.new(0.7, 0, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.Parent = frame
-
-    local toggleBtn = Instance.new("TextButton")
-    toggleBtn.Text = toggled and "ON" or "OFF"
-    toggleBtn.Font = Enum.Font.SourceSans
-    toggleBtn.TextSize = 14
-    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggleBtn.BackgroundColor3 = toggled and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(100, 100, 100)
-    toggleBtn.BorderSizePixel = 0
-    toggleBtn.Size = UDim2.new(0, 50, 0, 25)
-    toggleBtn.Position = UDim2.new(1, -55, 0.5, -12.5)
-    toggleBtn.Parent = frame
-    Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
-
-    toggleBtn.MouseButton1Click:Connect(function()
-        toggled = not toggled
-        toggleBtn.Text = toggled and "ON" or "OFF"
-        tween(toggleBtn, {BackgroundColor3 = toggled and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(100, 100, 100)}, 0.15)
-        callback(toggled)
-    end)
-
-    return toggleBtn
-end
-
-local function createSlider(name, min, max, default, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -20, 0, 45)
-    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-    frame.BorderSizePixel = 0
-    frame.Parent = Content
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-
-    local label = Instance.new("TextLabel")
-    label.Text = name .. ": " .. default
-    label.Font = Enum.Font.SourceSans
-    label.TextSize = 14
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.BackgroundTransparency = 1
-    label.Size = UDim2.new(1, 0, 0, 20)
-    label.Position = UDim2.new(0, 0, 0, 0)
-    label.Parent = frame
-
-    local slider = Instance.new("Frame")
-    slider.Size = UDim2.new(1, -20, 0, 8)
-    slider.Position = UDim2.new(0, 10, 0, 25)
-    slider.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-    slider.BorderSizePixel = 0
-    slider.Parent = frame
-    Instance.new("UICorner", slider).CornerRadius = UDim.new(0, 4)
-
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-    fill.BorderSizePixel = 0
-    fill.Parent = slider
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 4)
-
-    local dragging = false
-    slider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
+-- ✅ CONNECTIONS
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        if CFG.ESP then
+            wait(1)
+            createESP(plr)
         end
     end)
+end)
 
-    UIS.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local percent = math.clamp((input.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
-            local value = math.floor(min + percent * (max - min))
-            fill.Size = UDim2.new(percent, 0, 1, 0)
-            label.Text = name .. ": " .. value
-            callback(value)
-        end
-    end)
+RunService.RenderStepped:Connect(function()
+    if not CFG.Unlocked then return end
+    updateESP()
+end)
 
-    UIS.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserButton.MouseButton1 then
-            dragging = false
-        end
-    end)
+-- ✅ AUTO FARM & DAMAGE GOD
+local function enableGodMode()
+    local char = LP.Character or LP.CharacterAdded:Wait()
+    local humanoid = char:WaitForChild("Humanoid")
+    humanoid.MaxHealth = math.huge
+    humanoid.Health = math.huge
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
 end
 
--- Home Tab Content
-createLabel("Welcome, " .. LocalPlayer.DisplayName)
-createButton("Test Button", function()
-    print("Hypershot Button Pressed")
-end)
-createToggle("Auto Aim", false, function(state)
-    print("Auto Aim:", state)
-end)
-createSlider("FOV", 10, 500, 120, function(val)
-    print("FOV Set:", val)
+-- ✅ AUTO SHOOT
+local function autoShoot()
+    local target = getClosest()
+    if target and CFG.AutoShoot then
+        -- Simulate shoot via remote event (adjust to your game)
+        local args = {
+            [1] = target.bone.Position,
+            [2] = target.plr,
+            [3] = "Head"
+        }
+        -- Example: game:GetService("ReplicatedStorage").Shoot:FireServer(unpack(args))
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if not CFG.Unlocked then return end
+    if CFG.AutoFarm then
+        enableGodMode()
+    end
+    if CFG.AutoShoot then
+        autoShoot()
+    end
 end)
 
--- Fade in
-Main.BackgroundTransparency = 1
-tween(Main, {BackgroundTransparency = 0}, 0.5)
+-- ✅ INITIALIZE
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= LP then
+        plr.CharacterAdded:Connect(function()
+            if CFG.ESP then
+                wait(1)
+                createESP(plr)
+            end
+        end)
+        if plr.Character then
+            createESP(plr)
+        end
+    end
+end
+
+-- ╔═══════════════════════════════════════════════════════════════════════╗
+-- ║                        VORTX HYPERSHOT PART 2                         ║
+-- ║           Silent Aim, Bring Enemy, No-Clip, FOV Slider                ║
+-- ╚═══════════════════════════════════════════════════════════════════════╝
+
+-- ✅ SILENT AIM
+local function silentAim()
+    local target = getClosest()
+    if target and CFG.SilentAim then
+        local dir = (target.bone.Position - Camera.CFrame.Position).Unit
+        local newCFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + dir)
+        Camera.CFrame = Camera.CFrame:Lerp(newCFrame, CFG.Smooth)
+    end
+end
+
+-- ✅ BRING ENEMY
+local function bringEnemy()
+    if not CFG.BringEnemy then return end
+    local target = getClosest()
+    if target then
+        local root = target.plr.Character:FindFirstChild("HumanoidRootPart")
+        local myRoot = LP.Character:FindFirstChild("HumanoidRootPart")
+        if root and myRoot then
+            root.CFrame = myRoot.CFrame * CFrame.new(0, 0, -3)
+        end
+    end
+end
+
+-- ✅ NO CLIP
+local function enableNoClip()
+    if not CFG.NoClip then return end
+    local char = LP.Character
+    if char then
+        for _, v in ipairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+            end
+        end
+    end
+end
+
+-- ✅ FOV SLIDER
+local slider = Instance.new("TextButton")
+slider.Size = UDim2.new(0.9, 0, 0, 30)
+slider.Position = UDim2.new(0.05, 0, 0, 280)
+slider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+slider.Text = "FOV: " .. CFG.FOV
+slider.TextColor3 = Color3.fromRGB(255, 255, 255)
+slider.Font = Enum.Font.Gotham
+slider.TextSize = 14
+slider.Parent = MainFrame
+Instance.new("UICorner", slider)
+
+local dragging = false
+slider.MouseButton1Down:Connect(function()
+    dragging = true
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local rel = math.clamp((input.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
+        CFG.FOV = math.floor(rel * 500)
+        slider.Text = "FOV: " .. CFG.FOV
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- ✅ SMOOTH SLIDER
+local smooth = Instance.new("TextButton")
+smooth.Size = UDim2.new(0.9, 0, 0, 30)
+smooth.Position = UDim2.new(0.05, 0, 0, 320)
+smooth.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+smooth.Text = "Smooth: " .. CFG.Smooth
+smooth.TextColor3 = Color3.fromRGB(255, 255, 255)
+smooth.Font = Enum.Font.Gotham
+smooth.TextSize = 14
+smooth.Parent = MainFrame
+Instance.new("UICorner", smooth)
+
+local smoothDragging = false
+smooth.MouseButton1Down:Connect(function()
+    smoothDragging = true
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if smoothDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local rel = math.clamp((input.Position.X - smooth.AbsolutePosition.X) / smooth.AbsoluteSize.X, 0, 1)
+        CFG.Smooth = math.round(rel * 100) / 100
+        smooth.Text = "Smooth: " .. CFG.Smooth
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        smoothDragging = false
+    end
+end)
+
+-- ✅ UPDATE LOOP
+RunService.RenderStepped:Connect(function()
+    if not CFG.Unlocked then return end
+    silentAim()
+    bringEnemy()
+    enableNoClip()
+end)
