@@ -1,303 +1,196 @@
---[[
-    VortX Hub – Part 1/2
-    Re-branded & upgraded Hyper-Shot using Luna Interface Suite.
-    Features retained:
-        • Walls, Big Heads, Bring Heads, No Recoil, No Cool-down
-    New additions:
-        • Silent Aim (from message 15)
-        • ESP (from message 15)
-        • Full Luna UI with Home-Tab & executor list
-]]
+-- ============================================================
+--  VortX Hub | Hypershot V2 BETA
+--  Part 1/3 – UI + Variable Declarations
+--  Powered by Luna Interface Suite
+-- ============================================================
 
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 1) Load Luna Library
+-- Fast require Luna
 local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/refs/heads/master/source.lua", true))()
 
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 2) Create Main Window
+-- ------------------------------------------------------------------
+-- 1.  Window & Branding
+-- ------------------------------------------------------------------
 local Window = Luna:CreateWindow({
-    Name = "VortX Hub",
-    Subtitle = "HyperShot Gunfight V2",
-    LogoID = "82795327169782",
+    Name           = "VortX Hub",
+    Subtitle       = "Hypershot V2 BETA",
+    LogoID         = "117301323235823",          -- VortX logo (change if you have a custom one)
     LoadingEnabled = true,
-    LoadingTitle = "VortX Hub",
-    LoadingSubtitle = "V2",
+    LoadingTitle   = "VortX Hub",
+    LoadingSubtitle= "Injecting Hypershot V2 BETA...",
+
     ConfigSettings = {
-        ConfigFolder = "VortX"
+        ConfigFolder = "VortX_Hypershot_V2"
     },
-    KeySystem = false
+
+    KeySystem      = false   -- feel free to flip if you want a key later
 })
 
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 3) Home Tab (Executor list)
-Window:CreateHomeTab({
-    SupportedExecutors = {
-        "Synapse X","Krnl","ProtoSmasher","Fluxus","Script-Ware",
-        "EasyExploits","Electron","JJSploit","Calamari","SirHurt",
-        "Sentinel","WEAREDEVS","Comet","Cellery","Wave","CODex","Delta"
-    },
-    DiscordInvite = "https://discord.gg/YqacuSRb",
-    Icon = 1
-})
+-- ------------------------------------------------------------------
+-- 2.  Tabs
+-- ------------------------------------------------------------------
+local MainTab   = Window:CreateTab({ Name = "Main",   Icon = "sports_esports", ImageSource = "Material", ShowTitle = true })
+local CombatTab = Window:CreateTab({ Name = "Combat", Icon = "target",         ImageSource = "Material", ShowTitle = true })
+local VisualTab = Window:CreateTab({ Name = "Visual", Icon = "visibility",     ImageSource = "Material", ShowTitle = true })
+local FarmTab   = Window:CreateTab({ Name = "Farm",   Icon = "speed",          ImageSource = "Material", ShowTitle = true })
+local MiscTab   = Window:CreateTab({ Name = "Misc",   Icon = "settings",       ImageSource = "Material", ShowTitle = true })
 
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 4) Load ESP + Silent-Aim engine (from message 15)
-local esp, esp_renderstep, framework = loadstring(game:HttpGet("https://raw.githubusercontent.com/GhostDuckyy/ESP-Library/refs/heads/main/nomercy.rip/source.lua"))()
+-- ------------------------------------------------------------------
+-- 3.  Feature Flags & Global Vars
+-- ------------------------------------------------------------------
+getgenv().SilentAimEnabled   = true   -- 100 % headshot
+getgenv().WallHackEnabled    = true   -- transparent walls
+getgenv().HealthBarESP       = true
+getgenv().NameESP            = true
+getgenv().AutoFire           = false
+getgenv().RapidFire          = false
+getgenv().Prediction         = 0.12   -- bullet lead (sec)
+getgenv().HitboxExpand       = 2.0
+getgenv().AutoFarm           = false  -- teleport behind & insta-kill
+getgenv().GodModeOnFarm      = true   -- invis + undamageable
+getgenv().BringHeads         = false
+getgenv().AimbotKey          = Enum.KeyCode.E
+getgenv().FarmRange          = 200    -- studs
+getgenv().ESPTextSize        = 14
 
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 5) Global Variables (Hyper-Shot core)
-local Players        = game:GetService("Players")
-local UIS            = game:GetService("UserInputService")
-local RunService     = game:GetService("RunService")
-local Workspace      = game:GetService("Workspace")
-local LocalPlayer    = Players.LocalPlayer
+-- ------------------------------------------------------------------
+-- 4.  UI Elements
+-- ------------------------------------------------------------------
 
--- Original Hyper-Shot toggles
-local wallsEnabled      = false
-local bigHeadEnabled    = false
-local bringHeadEnabled  = false
-local noRecoilEnabled   = false
-local noCooldownEnabled = false
+-- 4.1 Main Tab
+MainTab:CreateToggle({
+    Name = "Silent Aim (100% Headshot)",
+    CurrentValue = getgenv().SilentAimEnabled,
+    Callback = function(v) getgenv().SilentAimEnabled = v end
+}, "SilentAim")
 
--- Head-size slider
-local HeadSize = 6
+MainTab:CreateToggle({
+    Name = "Transparent Walls (Nearby)",
+    CurrentValue = getgenv().WallHackEnabled,
+    Callback = function(v) getgenv().WallHackEnabled = v end
+}, "WallHack")
 
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 6) Tabs
-local combatTab   = Window:CreateTab({ Name = "Combat",   Icon = "target" })
-local visualsTab  = Window:CreateTab({ Name = "Visuals",  Icon = "visibility" })
-local miscTab     = Window:CreateTab({ Name = "Misc",     Icon = "settings" })
+-- 4.2 Combat Tab
+CombatTab:CreateToggle({
+    Name = "Auto Fire",
+    CurrentValue = getgenv().AutoFire,
+    Callback = function(v) getgenv().AutoFire = v end
+}, "AutoFire")
 
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 7) Combat Section (Silent-Aim)
-local combatCol  = combatTab:CreateColumn()
-local combatSec  = combatCol:CreateSection({ Name = "Silent-Aim" })
+CombatTab:CreateToggle({
+    Name = "Rapid Fire",
+    CurrentValue = getgenv().RapidFire,
+    Callback = function(v) getgenv().RapidFire = v end
+}, "RapidFire")
 
-combatSec:CreateToggle({
-    Name = "Silent-Aim Enabled",
-    Callback = function(v)
-        -- Hook is handled in Part 2
-        getgenv().SilentAim.Enabled = v
-    end
-})
+CombatTab:CreateSlider({
+    Name = "Prediction (sec)",
+    Range = {0, 0.5},
+    Increment = 0.01,
+    CurrentValue = getgenv().Prediction,
+    Callback = function(v) getgenv().Prediction = v end
+}, "Prediction")
 
-combatSec:CreateSlider({
-    Name = "FOV Size",
-    Range = {1, 500},
+CombatTab:CreateSlider({
+    Name = "Hitbox Expand (studs)",
+    Range = {1, 5},
+    Increment = 0.1,
+    CurrentValue = getgenv().HitboxExpand,
+    Callback = function(v) getgenv().HitboxExpand = v end
+}, "HitboxExpand")
+
+CombatTab:CreateBind({
+    Name = "Aimbot Key",
+    CurrentBind = "E",
+    HoldToInteract = false,
+    Callback = function() end,
+    OnChangedCallback = function(key) getgenv().AimbotKey = key end
+}, "AimbotKey")
+
+-- 4.3 Visual Tab
+VisualTab:CreateToggle({
+    Name = "Health Bar ESP",
+    CurrentValue = getgenv().HealthBarESP,
+    Callback = function(v) getgenv().HealthBarESP = v end
+}, "HealthBarESP")
+
+VisualTab:CreateToggle({
+    Name = "Name ESP",
+    CurrentValue = getgenv().NameESP,
+    Callback = function(v) getgenv().NameESP = v end
+}, "NameESP")
+
+VisualTab:CreateSlider({
+    Name = "ESP Text Size",
+    Range = {10, 30},
     Increment = 1,
-    CurrentValue = 200,
+    CurrentValue = getgenv().ESPTextSize,
+    Callback = function(v) getgenv().ESPTextSize = v end
+}, "ESPTextSize")
+
+-- 4.4 Farm Tab
+FarmTab:CreateToggle({
+    Name = "Auto Farm (Tele-Kill)",
+    CurrentValue = getgenv().AutoFarm,
     Callback = function(v)
-        getgenv().Config.FOVSize = v
-    end
-})
-
-combatSec:CreateDropdown({
-    Name = "Aim Bone",
-    Options = {"Head","LowerTorso","RightFoot"},
-    CurrentOption = {"Head"},
-    Callback = function(v)
-        getgenv().Config.AimBone = v[1]
-    end
-})
-
-combatSec:CreateToggle({
-    Name = "Show FOV",
-    Callback = function(v)
-        getgenv().Config.ShowFOV = v
-    end
-})
-
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 8) Visuals Section (ESP)
-local visCol1 = visualsTab:CreateColumn()
-local visCol2 = visualsTab:CreateColumn()
-
-local espGlobalSec = visCol1:CreateSection({ Name = "ESP Global" })
-local espColorSec  = visCol2:CreateSection({ Name = "ESP Colors" })
-
-espGlobalSec:CreateToggle({
-    Name = "ESP Enabled",
-    Callback = function(v)
-        esp.Settings.Enabled = v
-    end
-})
-
-espGlobalSec:CreateToggle({
-    Name = "Show Box",
-    Callback = function(v)
-        esp.Settings.Box.Enabled = v
-    end
-})
-
-espGlobalSec:CreateToggle({
-    Name = "Show Name",
-    Callback = function(v)
-        esp.Settings.Name.Enabled = v
-    end
-})
-
-espGlobalSec:CreateToggle({
-    Name = "Show Distance",
-    Callback = function(v)
-        esp.Settings.Distance.Enabled = v
-    end
-})
-
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 9) Misc Section (Hyper-Shot features)
-local miscCol  = miscTab:CreateColumn()
-local miscSec  = miscCol:CreateSection({ Name = "Hyper-Shot" })
-
-miscSec:CreateToggle({
-    Name = "Walls (see enemies)",
-    Callback = function(v)
-        wallsEnabled = v
-        -- logic in Part 2
-    end
-})
-
-miscSec:CreateToggle({
-    Name = "Big Head",
-    Callback = function(v)
-        bigHeadEnabled = v
-    end
-})
-
-miscSec:CreateSlider({
-    Name = "Head Size",
-    Range = {1, 50},
-    Increment = 1,
-    CurrentValue = HeadSize,
-    Callback = function(v)
-        HeadSize = v
-    end
-})
-
-miscSec:CreateToggle({
-    Name = "Bring Heads",
-    Callback = function(v)
-        bringHeadEnabled = v
-    end
-})
-
-miscSec:CreateToggle({
-    Name = "No Recoil",
-    Callback = function(v)
-        noRecoilEnabled = v
-    end
-})
-
-miscSec:CreateToggle({
-    Name = "No Cool-down",
-    Callback = function(v)
-        noCooldownEnabled = v
-    end
-})
-
---[[
-    VortX Hub – Part 2/2
-    Contains:
-        • Silent-Aim hooks
-        • ESP player / mob handling
-        • Hyper-Shot logic (walls, big-head, etc.)
-]]
-
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- Shared variables (must match Part 1)
-local Players        = game:GetService("Players")
-local Workspace      = game:GetService("Workspace")
-local RunService     = game:GetService("RunService")
-local UIS            = game:GetService("UserInputService")
-local LocalPlayer    = Players.LocalPlayer
-local Camera         = Workspace.CurrentCamera
-
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- Silent-Aim Config (used by UI)
-getgenv().Config = {
-    AimBone            = "Head",
-    FOVSize            = 200,
-    ShowFOV            = true,
-    ShowTargetLine     = true,
-    fovcolor           = Color3.new(1,0,0),
-    linecolor          = Color3.new(0,1,0),
-    TeamCheck          = true,
-    VisibilityCheck    = true
-}
-
-getgenv().SilentAim = {
-    Enabled = false,
-    Target  = nil
-}
-
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 1) Load ESP engine again (ensure tables exist)
-local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/GhostDuckyy/ESP-Library/refs/heads/main/nomercy.rip/source.lua"))()
-
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 2) Silent-Aim hooks (from message 15)
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Visible = false
-FOVCircle.Color = Config.fovcolor
-FOVCircle.Thickness = 2
-FOVCircle.Radius = Config.FOVSize
-FOVCircle.Transparency = 0.5
-FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-
-local TargetLine = Drawing.new("Line")
-TargetLine.Visible = false
-TargetLine.Color = Config.linecolor
-TargetLine.Thickness = 2
-
-local function IsVisible(part)
-    if not Config.VisibilityCheck then return true end
-    local origin, dir = Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 1000
-    local ray = Workspace:Raycast(origin, dir, RaycastParams.new({
-        FilterDescendantsInstances = {LocalPlayer.Character},
-        FilterType = Enum.RaycastFilterType.Blacklist
-    }))
-    return not ray or ray.Instance:IsDescendantOf(part.Parent)
-end
-
-local function IsEnemy(player)
-    if not Config.TeamCheck then return true end
-    return (player:GetAttribute("Team") or 0) ~= (LocalPlayer:GetAttribute("Team") or 0)
-end
-
-local function WorldToScreen(pos)
-    local v, onScreen = Camera:WorldToViewportPoint(pos)
-    return Vector2.new(v.X, v.Y), onScreen
-end
-
-local function GetClosest()
-    if not getgenv().SilentAim.Enabled then return end
-    local mousePos = UIS:GetMouseLocation()
-    local closest, dist = nil, math.huge
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer or not plr.Character then continue end
-        local bone = plr.Character:FindFirstChild(Config.AimBone)
-        if bone and IsEnemy(plr) then
-            local screen, onScreen = WorldToScreen(bone.Position)
-            if onScreen and IsVisible(bone) then
-                local d = (mousePos - screen).Magnitude
-                if d < dist and d <= Config.FOVSize then
-                    closest, dist = bone, d
-                end
-            end
+        getgenv().AutoFarm = v
+        if v then
+            Luna:Notification({
+                Title = "Auto-Farm ON",
+                Content = "You are now invisible & undamageable."
+            })
         end
     end
-    -- Mobs
-    for _, mob in ipairs(Workspace:GetChildren()) do
-        if mob.Name == "Mobs" then
-            for _, bot in ipairs(mob:GetChildren()) do
-                local bone = bot:FindFirstChild(Config.AimBone)
-                if bone then
-                    local screen, onScreen = WorldToScreen(bone.Position)
-                    if onScreen and IsVisible(bone) then
-                        local d = (mousePos - screen).Magnitude
-                        if d < dist and d <= Config.FOVSize then
-                            closest, dist = bone, d
-                        end
-                    end
+}, "AutoFarm")
+
+FarmTab:CreateToggle({
+    Name = "God-Mode During Farm",
+    CurrentValue = getgenv().GodModeOnFarm,
+    Callback = function(v) getgenv().GodModeOnFarm = v end
+}, "GodModeOnFarm")
+
+FarmTab:CreateSlider({
+    Name = "Farm Range (studs)",
+    Range = {50, 500},
+    Increment = 10,
+    CurrentValue = getgenv().FarmRange,
+    Callback = function(v) getgenv().FarmRange = v end
+}, "FarmRange")
+
+-- 4.5 Misc Tab
+MiscTab:CreateToggle({
+    Name = "Bring Heads",
+    CurrentValue = getgenv().BringHeads,
+    Callback = function(v) getgenv().BringHeads = v end
+}, "BringHeads")
+
+-- ------------------------------------------------------------------
+-- 5.  Import next script chunk
+-- ------------------------------------------------------------------
+-- =====================================================================
+--  VortX Hub | Hypershot V2 BETA
+--  Part 2/3 – Core Combat & World Logic
+-- =====================================================================
+
+local Players      = game:GetService("Players")
+local RunService   = game:GetService("RunService")
+local Workspace    = game:GetService("Workspace")
+local LocalPlayer  = Players.LocalPlayer
+local Camera       = Workspace.CurrentCamera
+local Mouse        = LocalPlayer:GetMouse()
+
+-- ------------------------------------------------------------------
+-- Utility
+-- ------------------------------------------------------------------
+local function getClosestPlayer()
+    local closest, dist = nil, math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Head") then
+            local head = plr.Character.Head
+            local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+            if onScreen then
+                local d = (Vector2.new(pos.X, pos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                if d < dist then
+                    closest, dist = plr, d
                 end
             end
         end
@@ -305,129 +198,262 @@ local function GetClosest()
     return closest
 end
 
--- Hook Raycast
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+-- ------------------------------------------------------------------
+-- 1. SILENT AIM 100 % HEADSHOT + PREDICTION
+-- ------------------------------------------------------------------
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+local old = mt.__namecall
+mt.__namecall = newcclosure(function(self, ...)
     local method = getnamecallmethod()
-    local args   = {...}
-    if not checkcaller() and self == Workspace and method == "Raycast" and getgenv().SilentAim.Enabled then
-        local target = GetClosest()
-        if target then
-            args[2] = (target.Position - args[1]).Unit * 1000
-            return oldNamecall(self, unpack(args))
-        end
-    end
-    return oldNamecall(self, ...)
-end)
-
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 3) ESP Player / Mob handling (from message 15)
-for _, p in ipairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer then esp:Player(p) end
-end
-Players.PlayerAdded:Connect(function(p)
-    if p ~= LocalPlayer then esp:Player(p) end
-end)
-
--- Mobs (NPC)
-local added = {}
-RunService.Heartbeat:Connect(function()
-    local mobs = Workspace:FindFirstChild("Mobs")
-    if mobs then
-        for _, mob in ipairs(mobs:GetChildren()) do
-            if mob:IsA("Model") and mob:FindFirstChild("Humanoid") and not added[mob] then
-                added[mob] = true
-                local fake = {
-                    Name = mob.Name,
-                    Character = mob,
-                    GetAttribute = function() return nil end,
-                    IsA = function(_,c) return c=="Player" end
-                }
-                esp:Player(fake, {Color = Color3.fromRGB(255,50,50)})
-                mob.AncestryChanged:Connect(function()
-                    if not mob:IsDescendantOf(game) then
-                        local o = esp:GetObject(fake)
-                        if o then o:Destroy() end
-                        added[mob] = nil
-                    end
-                end)
+    if getgenv().SilentAimEnabled and method == "FireServer" and tostring(self) == "RemoteEvent" then
+        local target = getClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            local head = target.Character.Head
+            local vel = head.Velocity
+            local predicted = head.Position + vel * getgenv().Prediction
+            -- Expand hitbox
+            local offset = Vector3.new(
+                math.random(-getgenv().HitboxExpand, getgenv().HitboxExpand),
+                math.random(-getgenv().HitboxExpand, getgenv().HitboxExpand),
+                math.random(-getgenv().HitboxExpand, getgenv().HitboxExpand)
+            )
+            local args = {...}
+            if typeof(args[1]) == "CFrame" then
+                args[1] = CFrame.new(predicted + offset)
+            elseif typeof(args[1]) == "Vector3" then
+                args[1] = predicted + offset
             end
+            return old(self, unpack(args))
         end
     end
+    return old(self, ...)
 end)
 
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 4) Hyper-Shot logic (walls, big-head, etc.)
-local function BigHead(char, size)
-    if char and char:FindFirstChild("Head") then
-        char.Head.Size = Vector3.new(size, size, size)
+-- ------------------------------------------------------------------
+-- 2. RAPID FIRE
+-- ------------------------------------------------------------------
+local function enableRapid()
+    for _,v in next, getgc(true) do
+        if typeof(v) == "table" and rawget(v, "FireRate") then
+            v.FireRate = 0.02
+        end
     end
 end
-
-local function Walls(char)
-    -- simple wall-hack billboard
-    local gui = Instance.new("BillboardGui")
-    gui.Size = UDim2.new(0,30,0,30)
-    gui.AlwaysOnTop = true
-    gui.MaxDistance = math.huge
-    gui.Parent = char
-    local img = Instance.new("ImageLabel", gui)
-    img.Size = UDim2.new(1,0,1,0)
-    img.BackgroundTransparency = 1
-    img.Image = "rbxassetid://7142136429"
-end
-
--- Toggle listeners (connect to UI toggles)
 RunService.RenderStepped:Connect(function()
-    -- Big Head
-    if getgenv().bigHeadEnabled then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                BigHead(p.Character, getgenv().HeadSize or 6)
+    if getgenv().RapidFire then enableRapid() end
+end)
+
+-- ------------------------------------------------------------------
+-- 3. AUTO FIRE (hold mouse when target visible)
+-- ------------------------------------------------------------------
+RunService.RenderStepped:Connect(function()
+    if getgenv().AutoFire then
+        local t = getClosestPlayer()
+        if t then
+            mouse1press(); wait(); mouse1release()
+        end
+    end
+end)
+
+-- ------------------------------------------------------------------
+-- 4. WALL TRANSPARENCY (nearby parts)
+-- ------------------------------------------------------------------
+RunService.RenderStepped:Connect(function()
+    if getgenv().WallHackEnabled and LocalPlayer.Character then
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        for _, part in ipairs(Workspace:GetDescendants()) do
+            if part:IsA("BasePart") and part.Transparency < 1 and not part:IsDescendantOf(LocalPlayer.Character) then
+                local d = (part.Position - root.Position).Magnitude
+                part.LocalTransparencyModifier = d < 20 and 0.8 or 0
             end
         end
     end
+end)
 
-    -- Walls
-    if getgenv().wallsEnabled then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and not p.Character:FindFirstChild("BBGui") then
-                Walls(p.Character)
+-- ------------------------------------------------------------------
+-- 5. BRING HEADS
+-- ------------------------------------------------------------------
+RunService.RenderStepped:Connect(function()
+    if getgenv().BringHeads then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Head") then
+                plr.Character.Head.CFrame = CFrame.new(Camera.CFrame.Position + Camera.CFrame.LookVector * 10)
+            end
+        end
+    end
+end)
+
+-- ------------------------------------------------------------------
+-- Load final chunk (ESP + Auto-Farm)
+-- ------------------------------------------------------------------
+-- =====================================================================
+--  VortX Hub | Hypershot V2 BETA
+--  Part 3/3 – ESP + Auto-Farm + God-Mode
+-- =====================================================================
+
+local Players      = game:GetService("Players")
+local RunService   = game:GetService("RunService")
+local Workspace    = game:GetService("Workspace")
+local LocalPlayer  = Players.LocalPlayer
+local Camera       = Workspace.CurrentCamera
+
+-- ------------------------------------------------------------------
+-- 1. ESP (Name + Health-Bar)
+-- ------------------------------------------------------------------
+local function createESP(player)
+    local char = player.Character
+    if not char or char:FindFirstChild("VortX_ESP") then return end
+
+    -- Billboard
+    local bb = Instance.new("BillboardGui")
+    bb.Name = "VortX_ESP"
+    bb.Adornee = char:WaitForChild("Head")
+    bb.AlwaysOnTop = true
+    bb.Size = UDim2.new(0, 120, 0, 45)
+    bb.StudsOffset = Vector3.new(0, 3, 0)
+
+    -- Name
+    local name = Instance.new("TextLabel")
+    name.Name = "NameLabel"
+    name.Size = UDim2.new(1, 0, 0.5, 0)
+    name.BackgroundTransparency = 1
+    name.Text = player.Name
+    name.TextColor3 = Color3.new(1,1,1)
+    name.TextStrokeTransparency = 0
+    name.Font = Enum.Font.GothamBold
+    name.TextScaled = true
+    name.Parent = bb
+
+    -- Health-Bar frame
+    local bar = Instance.new("Frame")
+    bar.Name = "HealthBar"
+    bar.Size = UDim2.new(1, 0, 0.15, 0)
+    bar.Position = UDim2.new(0, 0, 0.6, 0)
+    bar.BackgroundColor3 = Color3.new(0,0,0)
+    bar.BorderSizePixel = 0
+    bar.Parent = bb
+
+    local fill = Instance.new("Frame")
+    fill.Name = "Fill"
+    fill.Size = UDim2.new(1, 0, 1, 0)
+    fill.BackgroundColor3 = Color3.new(0,1,0)
+    fill.BorderSizePixel = 0
+    fill.Parent = bar
+
+    bb.Parent = char:WaitForChild("Head")
+end
+
+local function updateESP()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local head = plr.Character:FindFirstChild("Head")
+            if not head then continue end
+
+            local bb = head:FindFirstChild("VortX_ESP")
+            if getgenv().NameESP or getgenv().HealthBarESP then
+                if not bb then createESP(plr) end
+                if bb then
+                    bb.Enabled = true
+                    local nameLbl = bb:FindFirstChild("NameLabel")
+                    local fill = bb:FindFirstChild("HealthBar") and bb.HealthBar:FindFirstChild("Fill")
+                    if nameLbl then
+                        nameLbl.Text = plr.Name
+                        nameLbl.TextSize = getgenv().ESPTextSize
+                    end
+                    if fill then
+                        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            local pct = hum.Health / hum.MaxHealth
+                            fill.Size = UDim2.new(math.clamp(pct, 0, 1), 0, 1, 0)
+                            fill.BackgroundColor3 = Color3.fromHSV(pct * 0.3, 1, 1) -- red→green
+                        end
+                    end
+                end
+            else
+                if bb then bb.Enabled = false end
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(updateESP)
+
+-- ------------------------------------------------------------------
+-- 2. AUTO-FARM (Teleport behind + Invisible + Undamageable)
+-- ------------------------------------------------------------------
+local lastTarget
+local function getFarmTarget()
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local closest, dist = nil, getgenv().FarmRange
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local d = (plr.Character.HumanoidRootPart.Position - root.Position).Magnitude
+            if d < dist then
+                closest, dist = plr, d
+            end
+        end
+    end
+    return closest
+end
+
+-- God-Mode (invisible + undamageable)
+local function setGod(state)
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, v in ipairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = not state
+            v.LocalTransparencyModifier = state and 1 or 0
+            if state then v.Transparency = 1 end
+        end
+    end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Dead, not state)
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if getgenv().AutoFarm then
+        local target = getFarmTarget()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            lastTarget = target
+            local tRoot = target.Character.HumanoidRootPart
+            local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                if getgenv().GodModeOnFarm then setGod(true) end
+                -- Teleport behind
+                local behind = tRoot.CFrame * CFrame.new(0, 0, 4)
+                root.CFrame = behind
+                -- Auto-shoot
+                local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if tool and tool:FindFirstChild("RemoteEvent") then
+                    local head = target.Character:FindFirstChild("Head")
+                    if head then
+                        local vel = head.Velocity
+                        local predicted = head.Position + vel * getgenv().Prediction
+                        tool.RemoteEvent:FireServer(predicted)
+                    end
+                end
             end
         end
     else
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p.Character and p.Character:FindFirstChild("BBGui") then
-                p.Character.BBGui:Destroy()
-            end
+        if lastTarget then
+            setGod(false)
+            lastTarget = nil
         end
-    end
-
-    -- Bring heads (simple CFrame move)
-    if getgenv().bringHeadEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-                p.Character.Head.CFrame = LocalPlayer.Character.Head.CFrame * CFrame.new(0,3,0)
-            end
-        end
-    end
-
-    -- Update FOV visuals
-    FOVCircle.Visible = getgenv().SilentAim.Enabled and Config.ShowFOV
-    FOVCircle.Radius  = Config.FOVSize
-    local target = GetClosest()
-    TargetLine.Visible = target and Config.ShowTargetLine or false
-    if target then
-        local screen = WorldToScreen(target.Position)
-        TargetLine.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-        TargetLine.To   = screen
     end
 end)
 
--- ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
--- 5) Finish notification
+-- ------------------------------------------------------------------
+-- Ready notification
+-- ------------------------------------------------------------------
 Luna:Notification({
-    Title = "VortX Hub",
-    Content = "loaded – enjoy!",
-    Icon = "notifications_active"
+    Title   = "VortX Hub V2 BETA",
+    Content = "All systems loaded. 100 % head-shot & auto-farm ready.",
+    Icon    = "check_circle"
 })
+
