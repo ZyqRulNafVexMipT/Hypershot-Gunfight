@@ -1,6 +1,5 @@
--- Load Rayfield Library
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local ESP = loadstring(game:HttpGet('https://raw.githubusercontent.com/ic3w0lf22/Roblox-ESP/main/ESP.lua'))()
+-- Gunakan URL alternatif Rayfield yang lebih stabil
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/UI-Interface/CustomFIeld/main/RayField.lua'))()
 
 -- Services
 local Players = game:GetService("Players")
@@ -9,7 +8,7 @@ local Camera = workspace.CurrentCamera
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
--- Main Window
+-- Main Window dengan konfigurasi yang lebih stabil
 local Window = Rayfield:CreateWindow({
     Name = "VortX Hub V2",
     LoadingTitle = "VortX Hub V2 Loaded",
@@ -30,28 +29,27 @@ local CombatTab = Window:CreateTab("Combat")
 local VisualTab = Window:CreateTab("Visuals")
 local AutoTab = Window:CreateTab("Auto")
 
--- Global Variables
+-- Variables
 getgenv().ForceHeadshot = false
 getgenv().BringPlayersEnabled = false
 getgenv().InfiniteAmmoEnabled = false
 getgenv().AutoHealEnabled = false
 getgenv().AutoCoinEnabled = false
-getgenv().ESPEnabled = false
 
--- ESP Configuration
-ESP:Toggle(true)
-ESP.Players = false
+-- ESP Setup
+local ESP = loadstring(game:HttpGet('https://raw.githubusercontent.com/ic3w0lf22/Roblox-ESP/main/ESP.lua'))()
+ESP:Toggle(false)
+ESP.Players = true
 ESP.NPCs = true
 ESP.Names = true
 ESP.Boxes = true
 ESP.Tracers = false
-ESP.Distance = true
 
--- Bring Players Function (Exact Implementation)
-local Players = game:GetService("Players")
+-- Bring Players Function (Exact)
+local PlayersService = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local player = Players.LocalPlayer
+local player = PlayersService.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 
 local teleportDistance = 5
@@ -85,92 +83,72 @@ end)
 -- Force Headshot Aimbot
 local function ForceHeadshot()
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local root = character:FindFirstChild("HumanoidRootPart")
+    if not character then return end
     
-    if root then
-        for _, target in ipairs(workspace:WaitForChild("Mobs"):GetChildren()) do
-            if target:IsA("Model") and target:FindFirstChild("Head") then
-                local head = target.Head
-                if head then
-                    -- Force aim at head
-                    if getgenv().ForceHeadshot then
-                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
-                    end
-                end
+    for _, target in ipairs(workspace:WaitForChild("Mobs"):GetChildren()) do
+        if target:IsA("Model") and target:FindFirstChild("Head") then
+            local head = target.Head
+            if head and getgenv().ForceHeadshot then
+                -- Force camera to look at head
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
             end
         end
     end
 end
 
 RunService.RenderStepped:Connect(function()
-    if getgenv().ForceHeadshot then
-        ForceHeadshot()
-    end
+    ForceHeadshot()
 end)
 
 -- Infinite Ammo Function
 RunService.RenderStepped:Connect(function()
     if getgenv().InfiniteAmmoEnabled and LocalPlayer.Character then
         for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
-            if tool:IsA("Tool") then
+            if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
                 tool.Ammo = 9999
             end
         end
         for _, tool in ipairs(LocalPlayer.Character:GetChildren()) do
-            if tool:IsA("Tool") then
+            if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
                 tool.Ammo = 9999
             end
         end
     end
 end)
 
--- Auto Heal & Coin Function
+-- Auto Collect Function
 local function AutoCollectItems()
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
     for _, part in ipairs(workspace:GetDescendants()) do
         if part:IsA("Part") then
-            if getgenv().AutoHealEnabled and (part.Name:lower() == "heal" or part.Name:lower() == "health") then
-                local distance = (part.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
-                if distance <= 100 then
-                    part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-                end
+            local distance = (part.Position - root.Position).magnitude
+            
+            -- Auto Heal
+            if getgenv().AutoHealEnabled and (part.Name:lower() == "heal" or part.Name:lower() == "health" or part.Name:lower() == "healthpack") and distance <= 100 then
+                part.CFrame = root.CFrame
             end
             
-            if getgenv().AutoCoinEnabled and (part.Name:lower() == "coin" or part.Name:lower() == "coins") then
-                local distance = (part.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
-                if distance <= 100 then
-                    part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-                end
+            -- Auto Coin
+            if getgenv().AutoCoinEnabled and (part.Name:lower() == "coin" or part.Name:lower() == "coins") and distance <= 100 then
+                part.CFrame = root.CFrame
             end
         end
     end
 end
 
 RunService.RenderStepped:Connect(function()
-    if getgenv().AutoHealEnabled or getgenv().AutoCoinEnabled then
-        AutoCollectItems()
-    end
+    AutoCollectItems()
 end)
 
--- Combat Tab Elements
+-- UI Elements
 CombatTab:CreateToggle({
     Name = "Force Headshot Aim",
     CurrentValue = false,
     Flag = "ForceHeadshotToggle",
     Callback = function(value)
         getgenv().ForceHeadshot = value
-        if value then
-            Rayfield:Notify({
-                Title = "Headshot Aim",
-                Content = "Force headshot aim is now enabled!",
-                Duration = 4
-            })
-        else
-            Rayfield:Notify({
-                Title = "Headshot Aim",
-                Content = "Force headshot aim is now disabled!",
-                Duration = 4
-            })
-        end
     end
 })
 
@@ -180,19 +158,6 @@ CombatTab:CreateToggle({
     Flag = "BringPlayersToggle",
     Callback = function(value)
         getgenv().BringPlayersEnabled = value
-        if value then
-            Rayfield:Notify({
-                Title = "Bring Players",
-                Content = "Bring Players is now enabled!",
-                Duration = 4
-            })
-        else
-            Rayfield:Notify({
-                Title = "Bring Players",
-                Content = "Bring Players is now disabled!",
-                Duration = 4
-            })
-        end
     end
 })
 
@@ -202,42 +167,15 @@ CombatTab:CreateToggle({
     Flag = "InfiniteAmmoToggle",
     Callback = function(value)
         getgenv().InfiniteAmmoEnabled = value
-        if value then
-            Rayfield:Notify({
-                Title = "Infinite Ammo",
-                Content = "Infinite Ammo is now enabled with 9999 rounds!",
-                Duration = 4
-            })
-        else
-            Rayfield:Notify({
-                Title = "Infinite Ammo",
-                Content = "Infinite Ammo is now disabled!",
-                Duration = 4
-            })
-        end
     end
 })
 
--- Auto Tab Elements
 AutoTab:CreateToggle({
     Name = "Auto Heal",
     CurrentValue = false,
     Flag = "AutoHealToggle",
     Callback = function(value)
         getgenv().AutoHealEnabled = value
-        if value then
-            Rayfield:Notify({
-                Title = "Auto Heal",
-                Content = "Auto Heal is now enabled!",
-                Duration = 4
-            })
-        else
-            Rayfield:Notify({
-                Title = "Auto Heal",
-                Content = "Auto Heal is now disabled!",
-                Duration = 4
-            })
-        end
     end
 })
 
@@ -247,19 +185,6 @@ AutoTab:CreateToggle({
     Flag = "AutoCoinToggle",
     Callback = function(value)
         getgenv().AutoCoinEnabled = value
-        if value then
-            Rayfield:Notify({
-                Title = "Auto Coin",
-                Content = "Auto Coin is now enabled!",
-                Duration = 4
-            })
-        else
-            Rayfield:Notify({
-                Title = "Auto Coin",
-                Content = "Auto Coin is now disabled!",
-                Duration = 4
-            })
-        end
     end
 })
 
@@ -268,25 +193,11 @@ AutoTab:CreateToggle({
     CurrentValue = false,
     Flag = "ESPToggle",
     Callback = function(value)
-        getgenv().ESPEnabled = value
         ESP:Toggle(value)
-        if value then
-            Rayfield:Notify({
-                Title = "ESP",
-                Content = "ESP is now enabled!",
-                Duration = 4
-            })
-        else
-            Rayfield:Notify({
-                Title = "ESP",
-                Content = "ESP is now disabled!",
-                Duration = 4
-            })
-        end
     end
 })
 
--- Notify user when everything is loaded
+-- Immediate notification
 Rayfield:Notify({
     Title = "VortX Hub V2",
     Content = "All features loaded successfully!",
