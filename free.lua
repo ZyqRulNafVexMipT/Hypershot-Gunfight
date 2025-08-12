@@ -186,7 +186,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Combat Tab Elements
+-- Create UI Elements
 CombatTab:CreateToggle({
     Name = "100% Headshot Aimbot",
     CurrentValue = false,
@@ -274,6 +274,46 @@ CombatTab:CreateToggle({
         end
     end
 })
+
+-- Auto Collect Function
+local function AutoCollect()
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA("Part") and (part.Name:lower() == "coin" or part.Name:lower() == "heal") then
+            local distance = (part.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
+            if distance <= 50 then
+                part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+            end
+        end
+    end
+end
+
+AutoTab:CreateToggle({
+    Name = "Auto Collect",
+    CurrentValue = false,
+    Flag = "AutoCollectToggle",
+    Callback = function(value)
+        getgenv().AutoCollectEnabled = value
+        if value then
+            Rayfield:Notify({
+                Title = "Auto Collect",
+                Content = "Auto Collect is now enabled!",
+                Duration = 4
+            })
+        else
+            Rayfield:Notify({
+                Title = "Auto Collect",
+                Content = "Auto Collect is now disabled!",
+                Duration = 4
+            })
+        end
+    end
+})
+
+RunService.RenderStepped:Connect(function()
+    if getgenv().AutoCollectEnabled then
+        AutoCollect()
+    end
+end)
 
 -- Notify user when everything is loaded
 Rayfield:Notify({
