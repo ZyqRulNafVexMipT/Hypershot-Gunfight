@@ -1,7 +1,7 @@
 -- Load Rayfield Library
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- ESP Library (Loaded after Rayfield)
+-- ESP Library
 local esp = nil
 local function LoadESP()
     esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/SiriusSoftwareLtd/ESP-Library/main/nomercy.rip/source.lua"))()
@@ -33,10 +33,12 @@ local Window = Rayfield:CreateWindow({
 -- Tabs
 local CombatTab = Window:CreateTab("Combat")
 local EspTab = Window:CreateTab("ESP")
+local MiscTab = Window:CreateTab("Misc")
 
 -- Combat Variables
 getgenv().SilentAimEnabled = false
 getgenv().Prediction = 0.15
+getgenv().BringPlayersEnabled = false
 
 -- Silent Aim Functions
 local function GetClosestPlayer()
@@ -108,25 +110,37 @@ CombatTab:CreateSlider({
 })
 
 -- Bring Players Function
-local function BringPlayers()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and not string.find(player.Name, "BOT") then
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                player.Character.HumanoidRootPart.CFrame = Camera.CFrame * CFrame.new(0, 0, -3)
+RunService.RenderStepped:Connect(function()
+    if getgenv().BringPlayersEnabled then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and not string.find(player.Name, "BOT") then
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    player.Character.HumanoidRootPart.CFrame = Camera.CFrame * CFrame.new(0, 0, -3)
+                end
             end
         end
     end
-end
+end)
 
-CombatTab:CreateButton({
-    Name = "Bring All Players",
-    Callback = function()
-        BringPlayers()
-        Rayfield:Notify({
-            Title = "Bring Players",
-            Content = "All players have been brought!",
-            Duration = 4
-        })
+CombatTab:CreateToggle({
+    Name = "Bring Players (Toggle)",
+    CurrentValue = false,
+    Flag = "BringPlayersToggle",
+    Callback = function(value)
+        getgenv().BringPlayersEnabled = value
+        if value then
+            Rayfield:Notify({
+                Title = "Bring Players",
+                Content = "Bring Players is now enabled!",
+                Duration = 4
+            })
+        else
+            Rayfield:Notify({
+                Title = "Bring Players",
+                Content = "Bring Players is now disabled!",
+                Duration = 4
+            })
+        end
     end
 })
 
@@ -277,6 +291,88 @@ CombatTab:CreateToggle({
         InfiniteAmmoEnabled = value
     end
 })
+
+-- Misc Tab Features
+local FullBrightEnabled = false
+local FpsBoostEnabled = false
+
+local Lighting = game:GetService("Lighting")
+
+-- Full Bright Function
+MiscTab:CreateToggle({
+    Name = "Full Bright",
+    CurrentValue = false,
+    Flag = "FullBrightToggle",
+    Callback = function(value)
+        FullBrightEnabled = value
+        if value then
+            Lighting.Brightness = 2
+            Lighting.ClockTime = 14
+            Lighting.FogEnd = 100000
+            Lighting.GlobalShadows = false
+            Lighting.Ambient = Color3.new(1, 1, 1)
+        else
+            Lighting.Brightness = 1
+            Lighting.ClockTime = 12
+            Lighting.FogEnd = 5000
+            Lighting.GlobalShadows = true
+            Lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
+        end
+    end
+})
+
+-- FPS Boost Function
+MiscTab:CreateToggle({
+    Name = "FPS Boost",
+    CurrentValue = false,
+    Flag = "FpsBoostToggle",
+    Callback = function(value)
+        FpsBoostEnabled = value
+        if value then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") then
+                    obj.Material = Enum.Material.SmoothPlastic
+                    obj.Reflectance = 0
+                end
+            end
+        else
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") then
+                    obj.Material = Enum.Material.Plastic
+                    obj.Reflectance = 0.5
+                end
+            end
+        end
+    end
+})
+
+-- God-like Prediction System
+local function GodPrediction()
+    if getgenv().SilentAimEnabled then
+        local closestPlayer = GetClosestPlayer()
+        if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Humanoid") then
+            local humanoid = closestPlayer.Character.Humanoid
+            local velocity = closestPlayer.Character.HumanoidRootPart.Velocity
+            local direction = velocity.Unit
+            local predictionDistance = velocity.Magnitude * 0.5
+
+            if closestPlayer.Character:FindFirstChild("Head") then
+                local targetPosition = closestPlayer.Character.Head.Position + (direction * predictionDistance)
+                return targetPosition
+            end
+        end
+    end
+    return nil
+end
+
+RunService.RenderStepped:Connect(function()
+    if getgenv().SilentAimEnabled then
+        local targetPosition = GodPrediction()
+        if targetPosition then
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPosition)
+        end
+    end
+end)
 
 -- Load ESP after Rayfield is initialized
 task.wait(1)
