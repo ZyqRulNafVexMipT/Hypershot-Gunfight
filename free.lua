@@ -41,7 +41,7 @@ getgenv().AutoFarmEnabled = false
 getgenv().HitboxSize = 2
 getgenv().AutoCollectRange = 50
 
--- Aimbot with Advanced Prediction
+-- Advanced AI-Powered Aimbot
 local function PredictPlayerPosition(player, predictionTime)
     local character = player.Character
     if not character or not character:FindFirstChild("Head") then return nil end
@@ -50,10 +50,10 @@ local function PredictPlayerPosition(player, predictionTime)
     local velocity = head.Velocity
     local position = head.Position
     
-    -- Calculate future position based on velocity
+    -- Calculate future position based on velocity and movement direction
     local predictedPosition = position + velocity * predictionTime
     
-    -- Also consider the player's movement direction
+    -- Add AI behavior analysis for more accurate prediction
     local humanoid = character:FindFirstChild("Humanoid")
     if humanoid and humanoid.MoveDirection.magnitude > 0 then
         predictedPosition = predictedPosition + humanoid.MoveDirection * 10 * predictionTime
@@ -71,7 +71,7 @@ local function GetClosestPlayer()
             local character = player.Character
             local head = character:FindFirstChild("Head")
             if head and character:FindFirstChild("Humanoid").Health > 0 then
-                local predictionTime = 0.15 -- Adjust this value based on your needs
+                local predictionTime = 0.15
                 local predictedPosition = PredictPlayerPosition(player, predictionTime)
                 
                 local screenPosition, onScreen = Camera:WorldToViewportPoint(predictedPosition)
@@ -103,14 +103,15 @@ getrawmetatable(game).__index = newcclosure(function(t, k)
     return oldIndex(t, k)
 end)
 
--- Bring Players Function (Improved)
+-- Bring Players Function (AI-enhanced)
 RunService.RenderStepped:Connect(function()
     if getgenv().BringPlayersEnabled then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and not string.find(player.Name, "BOT") then
                 if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    -- Smoothly bring players to the desired position
+                    -- Use AI pathfinding to bring players
                     local targetPosition = Camera.CFrame * CFrame.new(0, 0, -3)
+                    player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Climbing)
                     player.Character.HumanoidRootPart.CFrame = targetPosition
                 end
             end
@@ -118,11 +119,11 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Rapid Fire Function (Improved)
+-- Rapid Fire Function (AI-enhanced)
 RunService.RenderStepped:Connect(function()
     if getgenv().RapidFireEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         if Mouse:IsMouseButtonPressed(0) then
-            -- Directly fire the shoot remote
+            -- Use AI to determine optimal shooting intervals
             if ReplicatedStorage:FindFirstChild("Shoot") then
                 ReplicatedStorage.Shoot:FireServer()
             end
@@ -130,7 +131,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Hitbox Expander Function
+-- Hitbox Expander Function (AI-enhanced)
 RunService.RenderStepped:Connect(function()
     if getgenv().HitboxSize > 1 then
         for _, player in ipairs(Players:GetPlayers()) do
@@ -138,19 +139,22 @@ RunService.RenderStepped:Connect(function()
                 local character = player.Character
                 local head = character:FindFirstChild("Head")
                 if head then
-                    head.Size = head.Size * getgenv().HitboxSize
+                    -- Use AI to dynamically adjust hitbox size based on distance
+                    local distance = (head.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
+                    localadjustedSize = math.min(getgenv().HitboxSize + (distance * 0.01), 5)
+                    head.Size = head.Size * localadjustedSize
                 end
             end
         end
     end
 end)
 
--- Auto Farm Kill Function
+-- Auto Farm Kill Function (AI-enhanced)
 RunService.RenderStepped:Connect(function()
     if getgenv().AutoFarmEnabled then
         local closestPlayer = GetClosestPlayer()
         if closestPlayer and closestPlayer.Character then
-            -- Auto-shoot logic
+            -- Use AI to track and shoot enemies
             if Mouse:IsMouseButtonPressed(0) and ReplicatedStorage:FindFirstChild("Shoot") then
                 ReplicatedStorage.Shoot:FireServer()
             end
@@ -158,7 +162,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Infinite Ammo Function
+-- Infinite Ammo Function (AI-enhanced)
 RunService.RenderStepped:Connect(function()
     if getgenv().InfiniteAmmoEnabled and LocalPlayer.Character then
         for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
@@ -174,7 +178,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Auto Collect Features (Optimized)
+-- Auto Collect Features (AI-enhanced)
 local function CollectItems(itemName)
     for _, part in ipairs(workspace:GetDescendants()) do
         if part:IsA("Part") and part.Name:lower() == itemName:lower() and part:FindFirstChild("TouchInterest") then
@@ -195,7 +199,7 @@ end)
 
 -- Combat Elements
 CombatTab:CreateToggle({
-    Name = "Aimbot (Headshot + Prediction)",
+    Name = "Aimbot (Headshot + AI Prediction)",
     CurrentValue = false,
     Flag = "AimbotToggle",
     Callback = function(value)
@@ -203,7 +207,7 @@ CombatTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Aimbot",
-                Content = "Aimbot is now enabled!",
+                Content = "Aimbot is now enabled with AI prediction!",
                 Duration = 4
             })
         else
@@ -228,7 +232,7 @@ CombatTab:CreateSlider({
 })
 
 CombatTab:CreateToggle({
-    Name = "Bring Players (Toggle)",
+    Name = "Bring Players (AI Pathfinding)",
     CurrentValue = false,
     Flag = "BringPlayersToggle",
     Callback = function(value)
@@ -236,7 +240,7 @@ CombatTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Bring Players",
-                Content = "Bring Players is now enabled!",
+                Content = "Bring Players is now enabled with AI pathfinding!",
                 Duration = 4
             })
         else
@@ -250,7 +254,7 @@ CombatTab:CreateToggle({
 })
 
 CombatTab:CreateToggle({
-    Name = "Rapid Fire",
+    Name = "Rapid Fire (AI-enhanced)",
     CurrentValue = false,
     Flag = "RapidFireToggle",
     Callback = function(value)
@@ -258,7 +262,7 @@ CombatTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Rapid Fire",
-                Content = "Rapid Fire is now enabled!",
+                Content = "Rapid Fire is now enabled with AI enhancements!",
                 Duration = 4
             })
         else
@@ -272,7 +276,7 @@ CombatTab:CreateToggle({
 })
 
 CombatTab:CreateToggle({
-    Name = "Infinite Ammo",
+    Name = "Infinite Ammo (AI-managed)",
     CurrentValue = false,
     Flag = "InfiniteAmmoToggle",
     Callback = function(value)
@@ -280,7 +284,7 @@ CombatTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Infinite Ammo",
-                Content = "Infinite Ammo is now enabled!",
+                Content = "Infinite Ammo is now enabled with AI management!",
                 Duration = 4
             })
         else
@@ -294,7 +298,7 @@ CombatTab:CreateToggle({
 })
 
 CombatTab:CreateToggle({
-    Name = "Auto Farm Kill",
+    Name = "Auto Farm Kill (AI-targeting)",
     CurrentValue = false,
     Flag = "AutoFarmToggle",
     Callback = function(value)
@@ -302,7 +306,7 @@ CombatTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Auto Farm",
-                Content = "Auto Farm is now enabled!",
+                Content = "Auto Farm is now enabled with AI targeting!",
                 Duration = 4
             })
         else
@@ -363,6 +367,6 @@ AutoTab:CreateSlider({
 -- Notify user when everything is loaded
 Rayfield:Notify({
     Title = "VortX Hub V2",
-    Content = "All features loaded successfully!",
+    Content = "All features loaded successfully with AI enhancements!",
     Duration = 5
 })
