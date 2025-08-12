@@ -8,6 +8,7 @@ local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Main Window
 local Window = Rayfield:CreateWindow({
@@ -32,27 +33,54 @@ local AutoTab = Window:CreateTab("Auto")
 
 -- Combat Variables
 getgenv().AimbotEnabled = false
-getgenv().Prediction = 0.15
+getgenv().Prediction = 0.2
 getgenv().BringPlayersEnabled = false
 getgenv().RapidFireEnabled = false
 getgenv().InfiniteAmmoEnabled = false
 getgenv().AutoFarmEnabled = false
 getgenv().HitboxSize = 2
+getgenv().AutoCollectRange = 50
 
--- Aimbot Functions
+-- Aimbot with Advanced Prediction
+local function PredictPlayerPosition(player, predictionTime)
+    local character = player.Character
+    if not character or not character:FindFirstChild("Head") then return nil end
+    
+    local head = character.Head
+    local velocity = head.Velocity
+    local position = head.Position
+    
+    -- Calculate future position based on velocity
+    local predictedPosition = position + velocity * predictionTime
+    
+    -- Also consider the player's movement direction
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid and humanoid.MoveDirection.magnitude > 0 then
+        predictedPosition = predictedPosition + humanoid.MoveDirection * 10 * predictionTime
+    end
+    
+    return predictedPosition
+end
+
 local function GetClosestPlayer()
     local closestPlayer = nil
     local shortestDistance = math.huge
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("Head") then
-            local targetPosition = player.Character.Head.Position + (player.Character.Head.Velocity * getgenv().Prediction)
-            local screenPosition, onScreen = Camera:WorldToViewportPoint(targetPosition)
-            local distance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPosition.X, screenPosition.Y)).Magnitude
+        if player ~= LocalPlayer and player.Character then
+            local character = player.Character
+            local head = character:FindFirstChild("Head")
+            if head and character:FindFirstChild("Humanoid").Health > 0 then
+                local predictionTime = 0.15 -- Adjust this value based on your needs
+                local predictedPosition = PredictPlayerPosition(player, predictionTime)
+                
+                local screenPosition, onScreen = Camera:WorldToViewportPoint(predictedPosition)
+                local distance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPosition.X, screenPosition.Y)).Magnitude
 
-            if distance < shortestDistance and distance < 500 and onScreen then
-                closestPlayer = player
-                shortestDistance = distance
+                if distance < shortestDistance and distance < 500 and onScreen then
+                    closestPlayer = player
+                    shortestDistance = distance
+                end
             end
         end
     end
@@ -67,34 +95,36 @@ getrawmetatable(game).__index = newcclosure(function(t, k)
     if getgenv().AimbotEnabled and k == "CurrentCamera" and t == workspace then
         local closestPlayer = GetClosestPlayer()
         if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
-            local targetPosition = closestPlayer.Character.Head.Position + (closestPlayer.Character.Head.Velocity * getgenv().Prediction)
-            return {CurrentCamera = Camera, TargetPoint = targetPosition}
+            local predictionTime = 0.15
+            local predictedPosition = PredictPlayerPosition(closestPlayer, predictionTime)
+            return {CurrentCamera = Camera, TargetPoint = predictedPosition}
         end
     end
     return oldIndex(t, k)
 end)
 
--- Bring Players Function
+-- Bring Players Function (Improved)
 RunService.RenderStepped:Connect(function()
     if getgenv().BringPlayersEnabled then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and not string.find(player.Name, "BOT") then
                 if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    player.Character.HumanoidRootPart.CFrame = Camera.CFrame * CFrame.new(0, 0, -3)
+                    -- Smoothly bring players to the desired position
+                    local targetPosition = Camera.CFrame * CFrame.new(0, 0, -3)
+                    player.Character.HumanoidRootPart.CFrame = targetPosition
                 end
             end
         end
     end
 end)
 
--- Rapid Fire Function
+-- Rapid Fire Function (Improved)
 RunService.RenderStepped:Connect(function()
     if getgenv().RapidFireEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         if Mouse:IsMouseButtonPressed(0) then
-            for _, v in pairs(getconnections(LocalPlayer.Character.Humanoid:GetPropertyChangedSignal("Health"))) do
-                if v.Function and getfenv(v.Function).script then
-                    getfenv(v.Function).script.Disabled = true
-                end
+            -- Directly fire the shoot remote
+            if ReplicatedStorage:FindFirstChild("Shoot") then
+                ReplicatedStorage.Shoot:FireServer()
             end
         end
     end
@@ -104,35 +134,25 @@ end)
 RunService.RenderStepped:Connect(function()
     if getgenv().HitboxSize > 1 then
         for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
-                local humanoid = player.Character.Humanoid
-                local rootPart = player.Character:FindFirstChild("HumanoidRootPart") or player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("Head")
-                
-                if rootPart then
-                    rootPart.Size = rootPart.Size * getgenv().HitboxSize
+            if player ~= LocalPlayer and player.Character then
+                local character = player.Character
+                local head = character:FindFirstChild("Head")
+                if head then
+                    head.Size = head.Size * getgenv().HitboxSize
                 end
             end
         end
     end
 end)
 
--- Auto Farm Function
+-- Auto Farm Kill Function
 RunService.RenderStepped:Connect(function()
-    if getgenv().AutoFarmEnabled and getgenv().AimbotEnabled then
+    if getgenv().AutoFarmEnabled then
         local closestPlayer = GetClosestPlayer()
-        if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Humanoid") then
-            local humanoid = closestPlayer.Character.Humanoid
-            
-            if humanoid.Health > 0 then
-                -- Auto-shoot logic
-                if Mouse:IsMouseButtonPressed(0) then
-                    game:GetService("ReplicatedStorage").Shoot:FireServer()
-                end
-            else
-                -- Auto-reload logic
-                if Mouse:IsMouseButtonPressed(2) then
-                    -- Add your reload implementation here
-                end
+        if closestPlayer and closestPlayer.Character then
+            -- Auto-shoot logic
+            if Mouse:IsMouseButtonPressed(0) and ReplicatedStorage:FindFirstChild("Shoot") then
+                ReplicatedStorage.Shoot:FireServer()
             end
         end
     end
@@ -141,15 +161,35 @@ end)
 -- Infinite Ammo Function
 RunService.RenderStepped:Connect(function()
     if getgenv().InfiniteAmmoEnabled and LocalPlayer.Character then
-        for _, child in ipairs(LocalPlayer.Character:GetChildren()) do
-            if child:IsA("Tool") and child:FindFirstChild("Handle") then
-                for _, prop in ipairs(child:GetProperties()) do
-                    if prop == "Ammo" then
-                        child.Ammo = math.huge
-                    end
-                end
+        for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                tool.Ammo = math.huge
             end
         end
+        for _, tool in ipairs(LocalPlayer.Character:GetChildren()) do
+            if tool:IsA("Tool") then
+                tool.Ammo = math.huge
+            end
+        end
+    end
+end)
+
+-- Auto Collect Features (Optimized)
+local function CollectItems(itemName)
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA("Part") and part.Name:lower() == itemName:lower() and part:FindFirstChild("TouchInterest") then
+            local distance = (part.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
+            if distance <= getgenv().AutoCollectRange then
+                part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if getgenv().AutoCollectEnabled then
+        CollectItems("Coin")
+        CollectItems("Heal")
     end
 end)
 
@@ -180,7 +220,7 @@ CombatTab:CreateSlider({
     Name = "Prediction Value",
     Range = {0, 1},
     Increment = 0.01,
-    CurrentValue = 0.15,
+    CurrentValue = 0.2,
     Flag = "PredictionSlider",
     Callback = function(value)
         getgenv().Prediction = value
@@ -286,88 +326,13 @@ CombatTab:CreateSlider({
     end
 })
 
--- Misc Elements
-local FullBrightEnabled = false
-local FpsBoostEnabled = false
-
-MiscTab:CreateToggle({
-    Name = "Full Bright",
-    CurrentValue = false,
-    Flag = "FullBrightToggle",
-    Callback = function(value)
-        FullBrightEnabled = value
-        if value then
-            Lighting.Brightness = 2
-            Lighting.ClockTime = 14
-            Lighting.FogEnd = 100000
-            Lighting.GlobalShadows = false
-            Lighting.Ambient = Color3.new(1, 1, 1)
-        else
-            Lighting.Brightness = 1
-            Lighting.ClockTime = 12
-            Lighting.FogEnd = 5000
-            Lighting.GlobalShadows = true
-            Lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
-        end
-    end
-})
-
-MiscTab:CreateToggle({
-    Name = "FPS Boost",
-    CurrentValue = false,
-    Flag = "FpsBoostToggle",
-    Callback = function(value)
-        FpsBoostEnabled = value
-        if value then
-            for _, obj in ipairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") then
-                    obj.Material = Enum.Material.SmoothPlastic
-                    obj.Reflectance = 0
-                end
-            end
-        else
-            for _, obj in ipairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") then
-                    obj.Material = Enum.Material.Plastic
-                    obj.Reflectance = 0.5
-                end
-            end
-        end
-    end
-})
-
--- Auto Collect Features
-local AutoCollectEnabled = false
-
-function CollectCoins()
-    for _, part in ipairs(workspace:GetDescendants()) do
-        if part:IsA("Part") and (part.Name == "Coin" or part.Name == "coin") and part:FindFirstChild("TouchInterest") then
-            part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-        end
-    end
-end
-
-function CollectHeals()
-    for _, part in ipairs(workspace:GetDescendants()) do
-        if part:IsA("Part") and (part.Name == "Heal" or part.Name == "heal" or part.Name == "HealthPack") and part:FindFirstChild("TouchInterest") then
-            part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-        end
-    end
-end
-
-RunService.RenderStepped:Connect(function()
-    if AutoCollectEnabled then
-        CollectCoins()
-        CollectHeals()
-    end
-end)
-
+-- Auto Collect Elements
 AutoTab:CreateToggle({
     Name = "Auto Collect",
     CurrentValue = false,
     Flag = "AutoCollectToggle",
     Callback = function(value)
-        AutoCollectEnabled = value
+        getgenv().AutoCollectEnabled = value
         if value then
             Rayfield:Notify({
                 Title = "Auto Collect",
@@ -384,6 +349,18 @@ AutoTab:CreateToggle({
     end
 })
 
+AutoTab:CreateSlider({
+    Name = "Collect Range",
+    Range = {10, 1000},
+    Increment = 10,
+    CurrentValue = 50,
+    Flag = "CollectRangeSlider",
+    Callback = function(value)
+        getgenv().AutoCollectRange = value
+    end
+})
+
+-- Notify user when everything is loaded
 Rayfield:Notify({
     Title = "VortX Hub V2",
     Content = "All features loaded successfully!",
