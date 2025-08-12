@@ -1,15 +1,13 @@
 -- Load Rayfield Library
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local ESP = loadstring(game:HttpGet('https://raw.githubusercontent.com/ic3w0lf22/Roblox-ESP/main/ESP.lua'))()
 
 -- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
--- Variables
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 
 -- Main Window
 local Window = Rayfield:CreateWindow({
@@ -29,13 +27,25 @@ local Window = Rayfield:CreateWindow({
 
 -- Tabs
 local CombatTab = Window:CreateTab("Combat")
+local VisualTab = Window:CreateTab("Visuals")
 local AutoTab = Window:CreateTab("Auto")
 
 -- Global Variables
-getgenv().AimbotEnabled = false
+getgenv().ForceHeadshot = false
 getgenv().BringPlayersEnabled = false
-getgenv().AutoFarmEnabled = false
 getgenv().InfiniteAmmoEnabled = false
+getgenv().AutoHealEnabled = false
+getgenv().AutoCoinEnabled = false
+getgenv().ESPEnabled = false
+
+-- ESP Configuration
+ESP:Toggle(true)
+ESP.Players = false
+ESP.NPCs = true
+ESP.Names = true
+ESP.Boxes = true
+ESP.Tracers = false
+ESP.Distance = true
 
 -- Bring Players Function (Exact Implementation)
 local Players = game:GetService("Players")
@@ -72,22 +82,19 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Auto Farm Function
-local function AutoFarm()
+-- Force Headshot Aimbot
+local function ForceHeadshot()
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local root = character:FindFirstChild("HumanoidRootPart")
-
+    
     if root then
-        local targetPosition = root.Position + (root.CFrame.LookVector * 5)
-        for _, mob in ipairs(workspace:WaitForChild("Mobs"):GetChildren()) do
-            if mob:IsA("Model") and mob:FindFirstChild("Head") then
-                local mobHead = mob.Head
-                local screenPosition, onScreen = Camera:WorldToViewportPoint(mobHead.Position)
-                local distance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPosition.X, screenPosition.Y)).Magnitude
-
-                if distance < 500 and onScreen then
-                    if ReplicatedStorage:FindFirstChild("Shoot") then
-                        ReplicatedStorage.Shoot:FireServer()
+        for _, target in ipairs(workspace:WaitForChild("Mobs"):GetChildren()) do
+            if target:IsA("Model") and target:FindFirstChild("Head") then
+                local head = target.Head
+                if head then
+                    -- Force aim at head
+                    if getgenv().ForceHeadshot then
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
                     end
                 end
             end
@@ -96,77 +103,8 @@ local function AutoFarm()
 end
 
 RunService.RenderStepped:Connect(function()
-    if getgenv().AutoFarmEnabled then
-        AutoFarm()
-    end
-end)
-
--- Aimbot Function with Prediction
-local function PredictPlayerPosition(player, predictionTime)
-    local character = player.Character
-    if not character or not character:FindFirstChild("Head") then return nil end
-    
-    local head = character.Head
-    local velocity = head.Velocity
-    local position = head.Position
-    
-    local predictedPosition = position + velocity * predictionTime
-    
-    local humanoid = character:FindFirstChild("Humanoid")
-    if humanoid and humanoid.MoveDirection.magnitude > 0 then
-        predictedPosition = predictedPosition + humanoid.MoveDirection * 10 * predictionTime
-    end
-    
-    return predictedPosition
-end
-
-local function GetClosestPlayer()
-    local closestPlayer = nil
-    local shortestDistance = math.huge
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local character = player.Character
-            local head = character:FindFirstChild("Head")
-            if head and character:FindFirstChild("Humanoid").Health > 0 then
-                local predictionTime = 0.15
-                local predictedPosition = PredictPlayerPosition(player, predictionTime)
-                
-                local screenPosition, onScreen = Camera:WorldToViewportPoint(predictedPosition)
-                local distance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPosition.X, screenPosition.Y)).Magnitude
-
-                if distance < shortestDistance and distance < 500 and onScreen then
-                    closestPlayer = player
-                    shortestDistance = distance
-                end
-            end
-        end
-    end
-
-    return closestPlayer
-end
-
--- Metatable Hijack for Aimbot
-local oldIndex = getrawmetatable(game).__index
-setreadonly(getrawmetatable(game), false)
-getrawmetatable(game).__index = newcclosure(function(t, k)
-    if getgenv().AimbotEnabled and k == "CurrentCamera" and t == workspace then
-        local closestPlayer = GetClosestPlayer()
-        if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
-            local predictionTime = 0.15
-            local predictedPosition = PredictPlayerPosition(closestPlayer, predictionTime)
-            return {CurrentCamera = Camera, TargetPoint = predictedPosition}
-        end
-    end
-    return oldIndex(t, k)
-end)
-
--- Rapid Fire Function
-RunService.RenderStepped:Connect(function()
-    if getgenv().AutoFarmEnabled and Mouse:IsMouseButtonPressed(0) then
-        if ReplicatedStorage:FindFirstChild("Shoot") then
-            ReplicatedStorage.Shoot:FireServer()
-        end
+    if getgenv().ForceHeadshot then
+        ForceHeadshot()
     end
 end)
 
@@ -186,23 +124,50 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Create UI Elements
+-- Auto Heal & Coin Function
+local function AutoCollectItems()
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA("Part") then
+            if getgenv().AutoHealEnabled and (part.Name:lower() == "heal" or part.Name:lower() == "health") then
+                local distance = (part.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
+                if distance <= 100 then
+                    part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+                end
+            end
+            
+            if getgenv().AutoCoinEnabled and (part.Name:lower() == "coin" or part.Name:lower() == "coins") then
+                local distance = (part.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
+                if distance <= 100 then
+                    part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+                end
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if getgenv().AutoHealEnabled or getgenv().AutoCoinEnabled then
+        AutoCollectItems()
+    end
+end)
+
+-- Combat Tab Elements
 CombatTab:CreateToggle({
-    Name = "100% Headshot Aimbot",
+    Name = "Force Headshot Aim",
     CurrentValue = false,
-    Flag = "AimbotToggle",
+    Flag = "ForceHeadshotToggle",
     Callback = function(value)
-        getgenv().AimbotEnabled = value
+        getgenv().ForceHeadshot = value
         if value then
             Rayfield:Notify({
-                Title = "Aimbot",
-                Content = "Aimbot is now enabled with 100% headshot accuracy!",
+                Title = "Headshot Aim",
+                Content = "Force headshot aim is now enabled!",
                 Duration = 4
             })
         else
             Rayfield:Notify({
-                Title = "Aimbot",
-                Content = "Aimbot is now disabled!",
+                Title = "Headshot Aim",
+                Content = "Force headshot aim is now disabled!",
                 Duration = 4
             })
         end
@@ -232,28 +197,6 @@ CombatTab:CreateToggle({
 })
 
 CombatTab:CreateToggle({
-    Name = "Auto Farm Kill",
-    CurrentValue = false,
-    Flag = "AutoFarmToggle",
-    Callback = function(value)
-        getgenv().AutoFarmEnabled = value
-        if value then
-            Rayfield:Notify({
-                Title = "Auto Farm",
-                Content = "Auto Farm is now enabled!",
-                Duration = 4
-            })
-        else
-            Rayfield:Notify({
-                Title = "Auto Farm",
-                Content = "Auto Farm is now disabled!",
-                Duration = 4
-            })
-        end
-    end
-})
-
-CombatTab:CreateToggle({
     Name = "Infinite Ammo (9999)",
     CurrentValue = false,
     Flag = "InfiniteAmmoToggle",
@@ -275,45 +218,73 @@ CombatTab:CreateToggle({
     end
 })
 
--- Auto Collect Function
-local function AutoCollect()
-    for _, part in ipairs(workspace:GetDescendants()) do
-        if part:IsA("Part") and (part.Name:lower() == "coin" or part.Name:lower() == "heal") then
-            local distance = (part.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
-            if distance <= 50 then
-                part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-            end
-        end
-    end
-end
-
+-- Auto Tab Elements
 AutoTab:CreateToggle({
-    Name = "Auto Collect",
+    Name = "Auto Heal",
     CurrentValue = false,
-    Flag = "AutoCollectToggle",
+    Flag = "AutoHealToggle",
     Callback = function(value)
-        getgenv().AutoCollectEnabled = value
+        getgenv().AutoHealEnabled = value
         if value then
             Rayfield:Notify({
-                Title = "Auto Collect",
-                Content = "Auto Collect is now enabled!",
+                Title = "Auto Heal",
+                Content = "Auto Heal is now enabled!",
                 Duration = 4
             })
         else
             Rayfield:Notify({
-                Title = "Auto Collect",
-                Content = "Auto Collect is now disabled!",
+                Title = "Auto Heal",
+                Content = "Auto Heal is now disabled!",
                 Duration = 4
             })
         end
     end
 })
 
-RunService.RenderStepped:Connect(function()
-    if getgenv().AutoCollectEnabled then
-        AutoCollect()
+AutoTab:CreateToggle({
+    Name = "Auto Coin",
+    CurrentValue = false,
+    Flag = "AutoCoinToggle",
+    Callback = function(value)
+        getgenv().AutoCoinEnabled = value
+        if value then
+            Rayfield:Notify({
+                Title = "Auto Coin",
+                Content = "Auto Coin is now enabled!",
+                Duration = 4
+            })
+        else
+            Rayfield:Notify({
+                Title = "Auto Coin",
+                Content = "Auto Coin is now disabled!",
+                Duration = 4
+            })
+        end
     end
-end)
+})
+
+AutoTab:CreateToggle({
+    Name = "ESP",
+    CurrentValue = false,
+    Flag = "ESPToggle",
+    Callback = function(value)
+        getgenv().ESPEnabled = value
+        ESP:Toggle(value)
+        if value then
+            Rayfield:Notify({
+                Title = "ESP",
+                Content = "ESP is now enabled!",
+                Duration = 4
+            })
+        else
+            Rayfield:Notify({
+                Title = "ESP",
+                Content = "ESP is now disabled!",
+                Duration = 4
+            })
+        end
+    end
+})
 
 -- Notify user when everything is loaded
 Rayfield:Notify({
