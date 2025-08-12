@@ -33,33 +33,42 @@ local AutoTab = Window:CreateTab("Auto")
 
 -- Global Variables
 getgenv().AimbotEnabled = false
-getgenv().Prediction = 0.15
 getgenv().BringPlayersEnabled = false
 getgenv().AutoFarmEnabled = false
 getgenv().InfiniteAmmoEnabled = false
 
--- Bring Players Function
-local function BringPlayers()
-    local teleportDistance = 5
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local root = character:FindFirstChild("HumanoidRootPart")
+-- Bring Players Function (Exact Implementation)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+local teleportDistance = 5
+
+local function setTeleportDistance(studs)
+    if typeof(studs) == "number" and studs > 0 then
+        teleportDistance = studs
+    end
+end
+
+local function getTargetPosition()
+    local root = character:FindFirstChild("HumanoidRootPart")
     if root then
-        local targetPosition = root.Position + (root.CFrame.LookVector * teleportDistance)
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
-                if humanoidRootPart then
-                    humanoidRootPart.CFrame = CFrame.new(targetPosition)
-                end
-            end
-        end
+        return root.Position + (root.CFrame.LookVector * teleportDistance)
     end
 end
 
 RunService.RenderStepped:Connect(function()
     if getgenv().BringPlayersEnabled then
-        BringPlayers()
+        local targetPos = getTargetPosition()
+        if targetPos then
+            for _, mob in ipairs(workspace:WaitForChild("Mobs"):GetChildren()) do
+                if mob:IsA("Model") and mob.PrimaryPart then
+                    mob:SetPrimaryPartCFrame(CFrame.new(targetPos))
+                end
+            end
+        end
     end
 end)
 
@@ -101,7 +110,6 @@ local function PredictPlayerPosition(player, predictionTime)
     local velocity = head.Velocity
     local position = head.Position
     
-    -- Calculate future position based on velocity and movement direction
     local predictedPosition = position + velocity * predictionTime
     
     local humanoid = character:FindFirstChild("Humanoid")
@@ -167,12 +175,12 @@ RunService.RenderStepped:Connect(function()
     if getgenv().InfiniteAmmoEnabled and LocalPlayer.Character then
         for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
             if tool:IsA("Tool") then
-                tool.Ammo = math.huge
+                tool.Ammo = 9999
             end
         end
         for _, tool in ipairs(LocalPlayer.Character:GetChildren()) do
             if tool:IsA("Tool") then
-                tool.Ammo = math.huge
+                tool.Ammo = 9999
             end
         end
     end
@@ -246,7 +254,7 @@ CombatTab:CreateToggle({
 })
 
 CombatTab:CreateToggle({
-    Name = "Infinite Ammo",
+    Name = "Infinite Ammo (9999)",
     CurrentValue = false,
     Flag = "InfiniteAmmoToggle",
     Callback = function(value)
@@ -254,7 +262,7 @@ CombatTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Infinite Ammo",
-                Content = "Infinite Ammo is now enabled!",
+                Content = "Infinite Ammo is now enabled with 9999 rounds!",
                 Duration = 4
             })
         else
