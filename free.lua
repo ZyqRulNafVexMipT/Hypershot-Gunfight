@@ -1,12 +1,6 @@
 -- Load Rayfield Library
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- ESP Library
-local esp = nil
-local function LoadESP()
-    esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/SiriusSoftwareLtd/ESP-Library/main/nomercy.rip/source.lua"))()
-end
-
 -- Variables
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -17,8 +11,8 @@ local Lighting = game:GetService("Lighting")
 
 -- Main Window
 local Window = Rayfield:CreateWindow({
-    Name = "VortX Hub | Hypershot V1.5",
-    LoadingTitle = "VortX Hub Loaded",
+    Name = "VortX Hub V2",
+    LoadingTitle = "VortX Hub V2 Loaded",
     LoadingSubtitle = "OP Features Loaded",
     ConfigurationSaving = {
         Enabled = true,
@@ -33,7 +27,6 @@ local Window = Rayfield:CreateWindow({
 
 -- Tabs
 local CombatTab = Window:CreateTab("Combat")
-local EspTab = Window:CreateTab("ESP")
 local MiscTab = Window:CreateTab("Misc")
 local AutoTab = Window:CreateTab("Auto")
 
@@ -119,9 +112,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
-
--- ESP Configuration
-LoadESP()
 
 -- Combat Elements
 CombatTab:CreateToggle({
@@ -219,84 +209,6 @@ CombatTab:CreateToggle({
                 Content = "Infinite Ammo is now disabled!",
                 Duration = 4
             })
-        end
-    end
-})
-
--- ESP Elements
-EspTab:CreateToggle({
-    Name = "Enable ESP",
-    CurrentValue = false,
-    Flag = "ESPToggle",
-    Callback = function(value)
-        if esp then
-            esp.Settings.Enabled = value
-        end
-    end
-})
-
-EspTab:CreateToggle({
-    Name = "Show Boxes",
-    CurrentValue = true,
-    Flag = "BoxesToggle",
-    Callback = function(value)
-        if esp then
-            esp.Settings.Box.Enabled = value
-        end
-    end
-})
-
-EspTab:CreateToggle({
-    Name = "Show Names",
-    CurrentValue = true,
-    Flag = "NamesToggle",
-    Callback = function(value)
-        if esp then
-            esp.Settings.Name.Enabled = value
-        end
-    end
-})
-
-EspTab:CreateColorPicker({
-    Name = "Box Color",
-    Color = Color3.fromRGB(0, 146, 214),
-    Callback = function(color)
-        if esp then
-            esp.Settings.Box.Color = color
-        end
-    end
-})
-
-EspTab:CreateColorPicker({
-    Name = "Outline Color",
-    Color = Color3.fromRGB(0, 170, 255),
-    Callback = function(color)
-        if esp then
-            esp.Settings.Box.OutlineColor = color
-        end
-    end
-})
-
--- Wall Transparency
-local WallSection = CombatTab:CreateSection("Wall Transparency")
-
-CombatTab:CreateToggle({
-    Name = "Transparent Walls",
-    CurrentValue = false,
-    Flag = "WallToggle",
-    Callback = function(value)
-        if value == true then
-            for _, part in ipairs(workspace:GetDescendants()) do
-                if part:IsA("BasePart") and not part:IsDescendantOf(LocalPlayer.Character) then
-                    part.LocalTransparencyModifier = 0.5
-                end
-            end
-        else
-            for _, part in ipairs(workspace:GetDescendants()) do
-                if part:IsA("BasePart") and not part:IsDescendantOf(LocalPlayer.Character) then
-                    part.LocalTransparencyModifier = 0
-                end
-            end
         end
     end
 })
@@ -399,24 +311,8 @@ AutoTab:CreateToggle({
     end
 })
 
--- Initialize ESP after Rayfield is fully loaded
-task.wait(2)
-if esp then
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            esp:Player(player)
-        end
-    end
-
-    Players.PlayerAdded:Connect(function(player)
-        if player ~= LocalPlayer then
-            esp:Player(player)
-        end
-    end)
-end
-
 Rayfield:Notify({
-    Title = "VortX Hub",
+    Title = "VortX Hub V2",
     Content = "All features loaded successfully!",
     Duration = 5
 })
