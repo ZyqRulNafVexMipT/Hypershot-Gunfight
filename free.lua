@@ -399,8 +399,8 @@ AutoTab:CreateToggle({
     end
 })
 
--- Load ESP after Rayfield is initialized
-task.wait(1)
+-- Initialize ESP after Rayfield is fully loaded
+task.wait(2)
 if esp then
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
