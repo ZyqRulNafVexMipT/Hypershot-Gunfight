@@ -1,5 +1,5 @@
--- Gunakan URL alternatif Rayfield yang lebih stabil
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/UI-Interface/CustomFIeld/main/RayField.lua'))()
+-- Load Rayfield Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 -- Services
 local Players = game:GetService("Players")
@@ -8,7 +8,7 @@ local Camera = workspace.CurrentCamera
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
--- Main Window dengan konfigurasi yang lebih stabil
+-- Main Window
 local Window = Rayfield:CreateWindow({
     Name = "VortX Hub V2",
     LoadingTitle = "VortX Hub V2 Loaded",
@@ -26,24 +26,14 @@ local Window = Rayfield:CreateWindow({
 
 -- Tabs
 local CombatTab = Window:CreateTab("Combat")
-local VisualTab = Window:CreateTab("Visuals")
 local AutoTab = Window:CreateTab("Auto")
 
--- Variables
+-- Global Variables
 getgenv().ForceHeadshot = false
 getgenv().BringPlayersEnabled = false
 getgenv().InfiniteAmmoEnabled = false
 getgenv().AutoHealEnabled = false
 getgenv().AutoCoinEnabled = false
-
--- ESP Setup
-local ESP = loadstring(game:HttpGet('https://raw.githubusercontent.com/ic3w0lf22/Roblox-ESP/main/ESP.lua'))()
-ESP:Toggle(false)
-ESP.Players = true
-ESP.NPCs = true
-ESP.Names = true
-ESP.Boxes = true
-ESP.Tracers = false
 
 -- Bring Players Function (Exact)
 local PlayersService = game:GetService("Players")
@@ -80,7 +70,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Force Headshot Aimbot
+-- Force Headshot Function
 local function ForceHeadshot()
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     if not character then return end
@@ -89,15 +79,19 @@ local function ForceHeadshot()
         if target:IsA("Model") and target:FindFirstChild("Head") then
             local head = target.Head
             if head and getgenv().ForceHeadshot then
-                -- Force camera to look at head
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+                -- Force camera to lock onto head
+                local headPosition = head.Position
+                local cameraPos = Camera.CFrame.Position
+                Camera.CFrame = CFrame.new(cameraPos, headPosition)
             end
         end
     end
 end
 
 RunService.RenderStepped:Connect(function()
-    ForceHeadshot()
+    if getgenv().ForceHeadshot then
+        ForceHeadshot()
+    end
 end)
 
 -- Infinite Ammo Function
@@ -116,7 +110,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Auto Collect Function
+-- Auto Collect Function (Manual ESP)
 local function AutoCollectItems()
     local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not root then return end
@@ -126,12 +120,12 @@ local function AutoCollectItems()
             local distance = (part.Position - root.Position).magnitude
             
             -- Auto Heal
-            if getgenv().AutoHealEnabled and (part.Name:lower() == "heal" or part.Name:lower() == "health" or part.Name:lower() == "healthpack") and distance <= 100 then
+            if getgenv().AutoHealEnabled and (part.Name:lower() == "heal" or part.Name:lower() == "health" or part.Name:lower() == "healthpack") and distance <= 50 then
                 part.CFrame = root.CFrame
             end
             
             -- Auto Coin
-            if getgenv().AutoCoinEnabled and (part.Name:lower() == "coin" or part.Name:lower() == "coins") and distance <= 100 then
+            if getgenv().AutoCoinEnabled and (part.Name:lower() == "coin" or part.Name:lower() == "coins") and distance <= 50 then
                 part.CFrame = root.CFrame
             end
         end
@@ -142,9 +136,9 @@ RunService.RenderStepped:Connect(function()
     AutoCollectItems()
 end)
 
--- UI Elements
+-- UI Elements - Dibuat dengan method yang lebih stabil
 CombatTab:CreateToggle({
-    Name = "Force Headshot Aim",
+    Name = "Force Headshot",
     CurrentValue = false,
     Flag = "ForceHeadshotToggle",
     Callback = function(value)
@@ -188,18 +182,6 @@ AutoTab:CreateToggle({
     end
 })
 
-AutoTab:CreateToggle({
-    Name = "ESP",
-    CurrentValue = false,
-    Flag = "ESPToggle",
-    Callback = function(value)
-        ESP:Toggle(value)
-    end
-})
-
--- Immediate notification
+-- Notification
 Rayfield:Notify({
-    Title = "VortX Hub V2",
-    Content = "All features loaded successfully!",
-    Duration = 5
-})
+    Title = "VortX Hub
