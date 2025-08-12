@@ -36,6 +36,8 @@ getgenv().Prediction = 0.15
 getgenv().BringPlayersEnabled = false
 getgenv().RapidFireEnabled = false
 getgenv().InfiniteAmmoEnabled = false
+getgenv().AutoFarmEnabled = false
+getgenv().HitboxSize = 2
 
 -- Aimbot Functions
 local function GetClosestPlayer()
@@ -92,6 +94,44 @@ RunService.RenderStepped:Connect(function()
             for _, v in pairs(getconnections(LocalPlayer.Character.Humanoid:GetPropertyChangedSignal("Health"))) do
                 if v.Function and getfenv(v.Function).script then
                     getfenv(v.Function).script.Disabled = true
+                end
+            end
+        end
+    end
+end)
+
+-- Hitbox Expander Function
+RunService.RenderStepped:Connect(function()
+    if getgenv().HitboxSize > 1 then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
+                local humanoid = player.Character.Humanoid
+                local rootPart = player.Character:FindFirstChild("HumanoidRootPart") or player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("Head")
+                
+                if rootPart then
+                    rootPart.Size = rootPart.Size * getgenv().HitboxSize
+                end
+            end
+        end
+    end
+end)
+
+-- Auto Farm Function
+RunService.RenderStepped:Connect(function()
+    if getgenv().AutoFarmEnabled and getgenv().AimbotEnabled then
+        local closestPlayer = GetClosestPlayer()
+        if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Humanoid") then
+            local humanoid = closestPlayer.Character.Humanoid
+            
+            if humanoid.Health > 0 then
+                -- Auto-shoot logic
+                if Mouse:IsMouseButtonPressed(0) then
+                    game:GetService("ReplicatedStorage").Shoot:FireServer()
+                end
+            else
+                -- Auto-reload logic
+                if Mouse:IsMouseButtonPressed(2) then
+                    -- Add your reload implementation here
                 end
             end
         end
@@ -213,6 +253,39 @@ CombatTab:CreateToggle({
     end
 })
 
+CombatTab:CreateToggle({
+    Name = "Auto Farm Kill",
+    CurrentValue = false,
+    Flag = "AutoFarmToggle",
+    Callback = function(value)
+        getgenv().AutoFarmEnabled = value
+        if value then
+            Rayfield:Notify({
+                Title = "Auto Farm",
+                Content = "Auto Farm is now enabled!",
+                Duration = 4
+            })
+        else
+            Rayfield:Notify({
+                Title = "Auto Farm",
+                Content = "Auto Farm is now disabled!",
+                Duration = 4
+            })
+        end
+    end
+})
+
+CombatTab:CreateSlider({
+    Name = "Hitbox Expander",
+    Range = {1, 5},
+    Increment = 0.1,
+    CurrentValue = 2,
+    Flag = "HitboxSlider",
+    Callback = function(value)
+        getgenv().HitboxSize = value
+    end
+})
+
 -- Misc Elements
 local FullBrightEnabled = false
 local FpsBoostEnabled = false
@@ -268,7 +341,7 @@ local AutoCollectEnabled = false
 
 function CollectCoins()
     for _, part in ipairs(workspace:GetDescendants()) do
-        if part:IsA("Part") and part.Name == "Coin" and part:FindFirstChild("TouchInterest") then
+        if part:IsA("Part") and (part.Name == "Coin" or part.Name == "coin") and part:FindFirstChild("TouchInterest") then
             part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
         end
     end
@@ -276,7 +349,7 @@ end
 
 function CollectHeals()
     for _, part in ipairs(workspace:GetDescendants()) do
-        if part:IsA("Part") and part.Name == "Heal" and part:FindFirstChild("TouchInterest") then
+        if part:IsA("Part") and (part.Name == "Heal" or part.Name == "heal" or part.Name == "HealthPack") and part:FindFirstChild("TouchInterest") then
             part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
         end
     end
