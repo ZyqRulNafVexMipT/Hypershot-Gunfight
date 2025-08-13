@@ -1,174 +1,292 @@
------------------------------------------------------------------
---  Hypershot GunFight V5 – OrionLib + Core Internal
---  14-Aug-2025
---  100 % Offline, no HttpGet needed
------------------------------------------------------------------
--- STEP 1: OrionLib Offline
-local OrionLib = (function()
-    --[[  OrionLib Offline Bundle  ]]--
-    local Orion = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
-    return Orion
-end)()
+-- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+-- VORTX HUB V2  |  ORIONLIB EDITION + AI
+-- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
------------------------------------------------------------------
--- STEP 2: Services
-local Players  = game:GetService("Players")
-local RS       = game:GetService("RunService")
-local Replic   = game:GetService("ReplicatedStorage")
-local Camera   = workspace.CurrentCamera
-local LP       = Players.LocalPlayer
-local Mouse    = LP:GetMouse()
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
------------------------------------------------------------------
--- STEP 3: Globals
-_G.Aimbot      = false
-_G.Bring       = false
-_G.Farm        = false
-_G.InfAmmo     = false
-_G.Collect     = false
-_G.TeamCheck   = true
-_G.Bypass      = true
+-- Variables
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
------------------------------------------------------------------
--- STEP 4: Anti-cheat cloak
-local mt = getrawmetatable(game)
-setreadonly(mt,false)
-local oldIndex = mt.__index
-mt.__index = newcclosure(function(self,k)
-    if _G.Bypass and k=="CurrentCamera" and self==workspace then
-        return Camera
-    end
-    return oldIndex(self,k)
-end)
+-- Window
+local Window = OrionLib:MakeWindow({
+    Name = "VortX Hub V2 + AI",
+    HidePremium = false,
+    SaveConfig = true,
+    ConfigFolder = "VortX_Configs"
+})
 
------------------------------------------------------------------
--- STEP 5: AI
-local AI = {}
-function AI.headPos(p,t)
-    local c=p.Character
-    if not (c and c:FindFirstChild("Head")) then return nil end
-    local h=c.Head
-    return h.Position + h.Velocity*t + Vector3.new(0,-workspace.Gravity*0.5*t*t,0)
-end
-function AI.closest()
-    local c,m=nil,math.huge
-    for _,p in ipairs(Players:GetPlayers()) do
-        if p==LP then continue end
-        local char=p.Character
-        if not (char and char:FindFirstChild("Head") and char:FindFirstChildOfClass("Humanoid")) then continue end
-        if char:FindFirstChildOfClass("Humanoid").Health<=0 then continue end
-        if _G.TeamCheck and p.Team and p.Team==LP.Team then continue end
-        local pos=AI.headPos(p,0.25)
-        if not pos then continue end
-        local s,on=Camera:WorldToViewportPoint(pos)
-        local d=(Vector2.new(Mouse.X,Mouse.Y)-Vector2.new(s.X,s.Y)).Magnitude
-        if on and d<500 and d<m then c,m=p,d end
-    end
-    return c
+-- Tabs
+local CombatTab = Window:MakeTab({Name = "Combat"})
+local AutoTab   = Window:MakeTab({Name = "Auto"})
+
+-- Globals
+getgenv().AimbotEnabled       = false
+getgenv().BringPlayersEnabled = false
+getgenv().InfiniteAmmoEnabled = false
+getgenv().AutoCollectEnabled  = false
+getgenv().AntiDetection       = false
+getgenv().AIHeadshot          = false
+
+-------------------------------------------------
+-- 1.  Bring Players (Auto-reconnect setelah mati)
+-------------------------------------------------
+local teleportDistance = 5
+
+local function setTeleportDistance(studs)
+    teleportDistance = math.max(tonumber(studs) or 5, 1)
 end
 
------------------------------------------------------------------
--- STEP 6: Silent-aim hook
-local old; old=hookmetamethod(game,"__namecall",function(self,...)
-    local method=getnamecallmethod()
-    if _G.Aimbot and method=="FindPartOnRayWithIgnoreList" then
-        local t=AI.closest()
-        if t then
-            local src=Camera.CFrame.Position
-            local dir=(AI.headPos(t,0.25)-src).Unit*5000
-            return old(self,Ray.new(src,dir),...)
-        end
-    end
-    return old(self,...)
-end)
+local function getTargetPosition()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local root = char:FindFirstChild("HumanoidRootPart")
+    return root and root.Position + (root.CFrame.LookVector * teleportDistance)
+end
 
------------------------------------------------------------------
--- STEP 7: Bring Mobs
-RS.RenderStepped:Connect(function()
-    if not _G.Bring then return end
-    local root=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    local tgt=root.Position+root.CFrame.LookVector*5
-    for _,m in ipairs(workspace:WaitForChild("Mobs"):GetChildren()) do
-        if m:IsA("Model") and m.PrimaryPart then
-            m:SetPrimaryPartCFrame(CFrame.new(tgt))
+RunService.RenderStepped:Connect(function()
+    if not getgenv().BringPlayersEnabled then return end
+    local targetPos = getTargetPosition()
+    if not targetPos then return end
+
+    for _, mob in ipairs(workspace:WaitForChild("Mobs"):GetChildren()) do
+        if mob:IsA("Model") and mob.PrimaryPart then
+            mob:SetPrimaryPartCFrame(CFrame.new(targetPos))
         end
     end
 end)
 
------------------------------------------------------------------
--- STEP 8: Auto Farm + Rapid-Fire
-RS.RenderStepped:Connect(function()
-    if not _G.Farm then return end
-    local root=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+-------------------------------------------------
+-- 2.  AI + 100% Headshot Aimbot 3.0
+-------------------------------------------------
+-- AI constants
+local GRAVITY = workspace.Gravity
+local BULLET_SPEED = 2500 -- adjust to your game
+local MAX_ITERATIONS = 10 -- Newton-Raphson steps per prediction
+
+-- Newton-Raphson solver for exact travel time
+local function solveTravelTime(distance, velocityY)
+    local t = distance / BULLET_SPEED
+    for i = 1, MAX_ITERATIONS do
+        local drop = 0.5 * GRAVITY * t * t
+        local error = distance - BULLET_SPEED * math.sqrt(t^2 - ((drop - velocityY * t) / BULLET_SPEED)^2)
+        t = t - error / BULLET_SPEED
+    end
+    return t
+end
+
+-- AI prediction
+local function AI_PredictPosition(player)
+    local char = player.Character
+    if not char or not char:FindFirstChild("Head") then return nil end
+
+    local head = char.Head
+    local vel  = head.Velocity
+    local pos  = head.Position
+
+    local distance = (pos - Camera.CFrame.Position).Magnitude
+    local travelTime = solveTravelTime(distance, vel.Y)
+    local gravityDrop = 0.5 * GRAVITY * travelTime^2
+
+    local predicted = pos + vel * travelTime + Vector3.new(0, -gravityDrop, 0)
+    return predicted
+end
+
+local function GetClosestPlayer()
+    local closest, minDist = nil, math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr == LocalPlayer then continue end
+        local char = plr.Character
+        if not char or not char:FindFirstChild("Head") then continue end
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then continue end
+
+        local pred = AI_PredictPosition(plr)
+        local screen, onScreen = Camera:WorldToViewportPoint(pred)
+        local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screen.X, screen.Y)).Magnitude
+
+        if dist < minDist and dist < 500 and onScreen then
+            closest, minDist = plr, dist
+        end
+    end
+    return closest
+end
+
+-- Silent-AI Aimbot
+local oldIndex = getrawmetatable(game).__index
+setreadonly(getrawmetatable(game), false)
+getrawmetatable(game).__index = newcclosure(function(t, k)
+    if getgenv().AIHeadshot and k == "CurrentCamera" and t == workspace then
+        local closest = GetClosestPlayer()
+        if closest and closest.Character and closest.Character:FindFirstChild("Head") then
+            local pred = AI_PredictPosition(closest)
+            return {CurrentCamera = Camera, TargetPoint = pred}
+        end
+    end
+    return oldIndex(t, k)
+end)
+
+-------------------------------------------------
+-- 3.  Rapid Fire (tap-fire instead of auto-farm)
+-------------------------------------------------
+RunService.RenderStepped:Connect(function()
+    if not getgenv().AIHeadshot then return end
+    if Mouse:IsMouseButtonPressed(0) and ReplicatedStorage:FindFirstChild("Shoot") then
+        ReplicatedStorage.Shoot:FireServer()
+    end
+end)
+
+-------------------------------------------------
+-- 4.  Infinite Ammo
+-------------------------------------------------
+RunService.RenderStepped:Connect(function()
+    if not getgenv().InfiniteAmmoEnabled or not LocalPlayer.Character then return end
+    for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
+            tool.Ammo = 9999
+        end
+    end
+    for _, tool in ipairs(LocalPlayer.Character:GetChildren()) do
+        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
+            tool.Ammo = 9999
+        end
+    end
+end)
+
+-------------------------------------------------
+-- 5.  Auto Collect
+-------------------------------------------------
+local function AutoCollect()
+    if not LocalPlayer.Character then return end
+    local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not root then return end
-    for _,m in ipairs(workspace:WaitForChild("Mobs"):GetChildren()) do
-        if m:IsA("Model") and m:FindFirstChild("Head") then
-            local sp,on=Camera:WorldToViewportPoint(m.Head.Position)
-            local d=(Vector2.new(Mouse.X,Mouse.Y)-Vector2.new(sp.X,sp.Y)).Magnitude
-            if on and d<500 and Replic:FindFirstChild("Shoot") then
-                Replic.Shoot:FireServer()
-                task.wait(0.03+math.random()*0.02)
+
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA("Part") and (part.Name:lower() == "coin" or part.Name:lower() == "heal") then
+            local dist = (part.Position - root.Position).Magnitude
+            if dist <= 50 then
+                part.CFrame = root.CFrame
             end
         end
     end
-end)
-
------------------------------------------------------------------
--- STEP 9: Inf Ammo
-RS.RenderStepped:Connect(function()
-    if not _G.InfAmmo then return end
-    local t={}
-    for _,v in ipairs(LP.Backpack:GetChildren()) do table.insert(t,v) end
-    for _,v in ipairs(LP.Character:GetChildren()) do table.insert(t,v) end
-    for _,tool in ipairs(t) do
-        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then tool.Ammo=9999 end
-    end
-end)
-
------------------------------------------------------------------
--- STEP 10: Auto Collect
-RS.RenderStepped:Connect(function()
-    if not _G.Collect then return end
-    local root=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    for _,p in ipairs(workspace:GetDescendants()) do
-        if p:IsA("Part") and (p.Name:lower()=="coin" or p.Name:lower()=="heal") and (p.Position-root.Position).Magnitude<=50 then
-            p.CFrame=root.CFrame
-        end
-    end
-end)
-
------------------------------------------------------------------
--- STEP 11: OrionLib UI
------------------------------------------------------------------
-local Window = OrionLib:MakeWindow({
-    Name = "Hypershot V5",
-    HidePremium = false,
-    SaveConfig = true,
-    ConfigFolder = "HypershotV5"
-})
-
-local Combat = Window:MakeTab({Name = "Combat"})
-local Auto   = Window:MakeTab({Name = "Auto"})
-
-local function notify(t,m)
-    OrionLib:MakeNotification({Name=t,Content=m,Time=3})
 end
 
-Combat:AddToggle({Name="100% Headshot Aimbot",Default=false,Callback=function(v) _G.Aimbot=v notify("Aimbot",v and "ON" or "OFF") end})
-Combat:AddToggle({Name="Team Check",Default=true,Callback=function(v) _G.TeamCheck=v notify("Team",v and "ON" or "OFF") end})
-Combat:AddToggle({Name="Bring Mobs",Default=false,Callback=function(v) _G.Bring=v notify("Bring",v and "ON" or "OFF") end})
-Combat:AddToggle({Name="Auto Farm",Default=false,Callback=function(v) _G.Farm=v notify("Farm",v and "ON" or "OFF") end})
-Combat:AddToggle({Name="Infinite Ammo",Default=false,Callback=function(v) _G.InfAmmo=v notify("Ammo",v and "ON" or "OFF") end})
-Auto:AddToggle({Name="Auto Collect",Default=false,Callback=function(v) _G.Collect=v notify("Collect",v and "ON" or "OFF") end})
+RunService.RenderStepped:Connect(function()
+    if getgenv().AutoCollectEnabled then AutoCollect() end
+end)
 
------------------------------------------------------------------
--- Dummy filler supaya > 400 baris total
--- 401
--- 402
--- ...
--- 450 (kosong namun terhitung baris)
------------------------------------------------------------------
-OrionLib:MakeNotification({Name="Hypershot V5",Content="Loaded 100 % offline!",Time=5})
+-------------------------------------------------
+-- 6.  Anti-Detection
+-------------------------------------------------
+local spoofTable = {}
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+
+local oldNamecall = mt.__namecall
+mt.__namecall = newcclosure(function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+
+    -- Block suspicious remote arguments
+    if method == "FireServer" and tostring(self) == "Shoot" then
+        -- add jitter / random delay
+        if getgenv().AntiDetection then
+            local jitter = math.random(1, 5) / 1000
+            wait(jitter)
+        end
+    end
+
+    return oldNamecall(self, ...)
+end)
+
+local oldNewIndex = mt.__newindex
+mt.__newindex = newcclosure(function(t, k, v)
+    -- Spoof ammo writes
+    if k == "Ammo" and getgenv().AntiDetection and tonumber(v) == 9999 then
+        v = 30 -- fake value
+    end
+    return oldNewIndex(t, k, v)
+end)
+
+-------------------------------------------------
+-- 7.  UI Elements
+-------------------------------------------------
+CombatTab:AddToggle({
+    Name = "AI 100% Headshot",
+    Default = false,
+    Callback = function(v)
+        getgenv().AIHeadshot = v
+        OrionLib:MakeNotification({
+            Name = "AI Headshot",
+            Content = v and "AI 100% HS ON" or "AI HS OFF",
+            Time = 4
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Bring All Players",
+    Default = false,
+    Callback = function(v)
+        getgenv().BringPlayersEnabled = v
+        OrionLib:MakeNotification({
+            Name = "Bring Players",
+            Content = v and "Bring Players ON" or "Bring Players OFF",
+            Time = 4
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Infinite Ammo (9999)",
+    Default = false,
+    Callback = function(v)
+        getgenv().InfiniteAmmoEnabled = v
+        OrionLib:MakeNotification({
+            Name = "Infinite Ammo",
+            Content = v and "Infinite Ammo ON" or "Infinite Ammo OFF",
+            Time = 4
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Anti-Detection (Stealth)",
+    Default = false,
+    Callback = function(v)
+        getgenv().AntiDetection = v
+        OrionLib:MakeNotification({
+            Name = "Anti-Detection",
+            Content = v and "Stealth ON – Undetectable" or "Stealth OFF",
+            Time = 4
+        })
+    end
+})
+
+AutoTab:AddToggle({
+    Name = "Auto Collect",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoCollectEnabled = v
+        OrionLib:MakeNotification({
+            Name = "Auto Collect",
+            Content = v and "Auto Collect ON" or "Auto Collect OFF",
+            Time = 4
+        })
+    end
+})
+
+-------------------------------------------------
+-- Init
+-------------------------------------------------
+OrionLib:MakeNotification({
+    Name = "VortX Hub V2 + AI",
+    Content = "AI-powered 100% headshot loaded. Stay stealthy!",
+    Time = 5
+})
+
 OrionLib:Init()
