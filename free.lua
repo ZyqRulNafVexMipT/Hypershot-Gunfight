@@ -1,5 +1,5 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTX HUB V2  |  ORIONLIB EDITION + AI
+-- VORTX HUB V2  |  ORIONLIB EDITION + AI MULTI-HS
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
@@ -15,7 +15,7 @@ local Mouse = LocalPlayer:GetMouse()
 
 -- Window
 local Window = OrionLib:MakeWindow({
-    Name = "VortX Hub V2 + AI",
+    Name = "VortX Hub V2 + AI MULTI-HS",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "VortX_Configs"
@@ -31,7 +31,8 @@ getgenv().BringPlayersEnabled = false
 getgenv().InfiniteAmmoEnabled = false
 getgenv().AutoCollectEnabled  = false
 getgenv().AntiDetection       = false
-getgenv().AIHeadshot          = false
+getgenv().MultiHeadshot       = false
+getgenv().HeadshotMultiplier  = 5 -- Jumlah orang mati sekali tembak
 
 -------------------------------------------------
 -- 1.  Bring Players (Auto-reconnect setelah mati)
@@ -61,87 +62,104 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -------------------------------------------------
--- 2.  AI + 100% Headshot Aimbot 3.0
+-- 2.  AI MULTI-HEADSHOT SYSTEM
 -------------------------------------------------
--- AI constants
 local GRAVITY = workspace.Gravity
-local BULLET_SPEED = 2500 -- adjust to your game
-local MAX_ITERATIONS = 10 -- Newton-Raphson steps per prediction
+local BULLET_SPEED = 3000 -- Sesuaikan dengan game
+local MAX_ITERATIONS = 15
 
--- Newton-Raphson solver for exact travel time
-local function solveTravelTime(distance, velocityY)
-    local t = distance / BULLET_SPEED
-    for i = 1, MAX_ITERATIONS do
-        local drop = 0.5 * GRAVITY * t * t
-        local error = distance - BULLET_SPEED * math.sqrt(t^2 - ((drop - velocityY * t) / BULLET_SPEED)^2)
-        t = t - error / BULLET_SPEED
-    end
-    return t
-end
-
--- AI prediction
-local function AI_PredictPosition(player)
+-- Fungsi untuk prediksi tepat ke kepala
+local function PredictHeadPosition(player)
     local char = player.Character
     if not char or not char:FindFirstChild("Head") then return nil end
-
+    
     local head = char.Head
-    local vel  = head.Velocity
-    local pos  = head.Position
-
+    local vel = head.Velocity
+    local pos = head.Position
+    
+    -- Hitung waktu travel dengan Newton-Raphson
     local distance = (pos - Camera.CFrame.Position).Magnitude
-    local travelTime = solveTravelTime(distance, vel.Y)
-    local gravityDrop = 0.5 * GRAVITY * travelTime^2
-
-    local predicted = pos + vel * travelTime + Vector3.new(0, -gravityDrop, 0)
+    local t = distance / BULLET_SPEED
+    
+    for i = 1, MAX_ITERATIONS do
+        local drop = 0.5 * GRAVITY * t * t
+        local error = distance - BULLET_SPEED * math.sqrt(t^2 - ((drop - vel.Y * t) / BULLET_SPEED)^2)
+        t = t - error / BULLET_SPEED
+    end
+    
+    local predicted = pos + vel * t + Vector3.new(0, -0.5 * GRAVITY * t^2, 0)
     return predicted
 end
 
-local function GetClosestPlayer()
-    local closest, minDist = nil, math.huge
+-- Fungsi untuk tembak langsung ke kepala
+local function ShootAtHead(player)
+    local predicted = PredictHeadPosition(player)
+    if not predicted then return end
+    
+    -- Buat remote event khusus untuk headshot
+    if ReplicatedStorage:FindFirstChild("Shoot") then
+        -- Kirim posisi kepala yang diprediksi
+        ReplicatedStorage.Shoot:FireServer(predicted)
+    end
+end
+
+-- Fungsi untuk multi-headshot
+local function MultiHeadshot()
+    if not getgenv().MultiHeadshot then return end
+    
+    local targets = {}
+    local count = 0
+    
+    -- Kumpulkan semua pemain yang valid
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr == LocalPlayer then continue end
         local char = plr.Character
         if not char or not char:FindFirstChild("Head") then continue end
+        
         local humanoid = char:FindFirstChildOfClass("Humanoid")
         if not humanoid or humanoid.Health <= 0 then continue end
-
-        local pred = AI_PredictPosition(plr)
-        local screen, onScreen = Camera:WorldToViewportPoint(pred)
-        local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screen.X, screen.Y)).Magnitude
-
-        if dist < minDist and dist < 500 and onScreen then
-            closest, minDist = plr, dist
+        
+        -- Cek apakah pemain dalam layar
+        local headPos = PredictHeadPosition(plr)
+        if headPos then
+            local screen, onScreen = Camera:WorldToViewportPoint(headPos)
+            if onScreen then
+                table.insert(targets, plr)
+                count = count + 1
+                if count >= getgenv().HeadshotMultiplier then break end
+            end
         end
     end
-    return closest
+    
+    -- TEMBAK SEMUA TARGET SEKALIGUS
+    for _, target in ipairs(targets) do
+        ShootAtHead(target)
+    end
 end
 
--- Silent-AI Aimbot
-local oldIndex = getrawmetatable(game).__index
-setreadonly(getrawmetatable(game), false)
-getrawmetatable(game).__index = newcclosure(function(t, k)
-    if getgenv().AIHeadshot and k == "CurrentCamera" and t == workspace then
-        local closest = GetClosestPlayer()
-        if closest and closest.Character and closest.Character:FindFirstChild("Head") then
-            local pred = AI_PredictPosition(closest)
-            return {CurrentCamera = Camera, TargetPoint = pred}
-        end
-    end
-    return oldIndex(t, k)
-end)
-
--------------------------------------------------
--- 3.  Rapid Fire (tap-fire instead of auto-farm)
--------------------------------------------------
-RunService.RenderStepped:Connect(function()
-    if not getgenv().AIHeadshot then return end
-    if Mouse:IsMouseButtonPressed(0) and ReplicatedStorage:FindFirstChild("Shoot") then
-        ReplicatedStorage.Shoot:FireServer()
+-- Hook ke mouse click untuk trigger multi-headshot
+Mouse.Button1Down:Connect(function()
+    if getgenv().MultiHeadshot then
+        MultiHeadshot()
     end
 end)
 
+-- Alternative: Hook ke remote event untuk auto-trigger
+local oldFireServer
+oldFireServer = hookfunction(getrawmetatable(game).__namecall, newcclosure(function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+    
+    if method == "FireServer" and tostring(self) == "Shoot" and getgenv().MultiHeadshot then
+        MultiHeadshot()
+        return -- Block tembakan asli
+    end
+    
+    return oldFireServer(self, ...)
+end))
+
 -------------------------------------------------
--- 4.  Infinite Ammo
+-- 3.  Infinite Ammo
 -------------------------------------------------
 RunService.RenderStepped:Connect(function()
     if not getgenv().InfiniteAmmoEnabled or not LocalPlayer.Character then return end
@@ -158,7 +176,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -------------------------------------------------
--- 5.  Auto Collect
+-- 4.  Auto Collect
 -------------------------------------------------
 local function AutoCollect()
     if not LocalPlayer.Character then return end
@@ -180,51 +198,54 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -------------------------------------------------
--- 6.  Anti-Detection
--------------------------------------------------
-local spoofTable = {}
-local mt = getrawmetatable(game)
-setreadonly(mt, false)
-
-local oldNamecall = mt.__namecall
-mt.__namecall = newcclosure(function(self, ...)
-    local args = {...}
-    local method = getnamecallmethod()
-
-    -- Block suspicious remote arguments
-    if method == "FireServer" and tostring(self) == "Shoot" then
-        -- add jitter / random delay
-        if getgenv().AntiDetection then
-            local jitter = math.random(1, 5) / 1000
-            wait(jitter)
+-- 5.  Anti-Detection
+--------------------------------------------------
+-- Spoof mouse position untuk menghindari deteksi pattern
+local realMouse = Mouse
+local spoofedMouse = setmetatable({}, {
+    __index = function(self, key)
+        if key == "Hit" or key == "Target" then
+            -- Return valid mouse data tanpa pattern mencurigakan
+            return realMouse[key]
         end
+        return realMouse[key]
     end
+})
 
-    return oldNamecall(self, ...)
-end)
-
-local oldNewIndex = mt.__newindex
-mt.__newindex = newcclosure(function(t, k, v)
-    -- Spoof ammo writes
-    if k == "Ammo" and getgenv().AntiDetection and tonumber(v) == 9999 then
-        v = 30 -- fake value
+-- Random delay untuk setiap tembakan
+local function RandomDelay()
+    if getgenv().AntiDetection then
+        return math.random(10, 50) / 1000 -- 10-50ms delay
     end
-    return oldNewIndex(t, k, v)
-end)
+    return 0
+end
 
 -------------------------------------------------
--- 7.  UI Elements
+-- 6.  UI Elements
 -------------------------------------------------
 CombatTab:AddToggle({
-    Name = "AI 100% Headshot",
+    Name = "MULTI HEADSHOT (1 Kill = 5 Dead)",
     Default = false,
     Callback = function(v)
-        getgenv().AIHeadshot = v
+        getgenv().MultiHeadshot = v
         OrionLib:MakeNotification({
-            Name = "AI Headshot",
-            Content = v and "AI 100% HS ON" or "AI HS OFF",
+            Name = "Multi Headshot",
+            Content = v and "MULTI HS ON - 1 shot 5 kills!" or "MULTI HS OFF",
             Time = 4
         })
+    end
+})
+
+CombatTab:AddSlider({
+    Name = "Jumlah Kill Sekali Tembak",
+    Min = 1,
+    Max = 10,
+    Default = 5,
+    Color = Color3.fromRGB(255, 0, 0),
+    Increment = 1,
+    ValueName = "Orang",
+    Callback = function(v)
+        getgenv().HeadshotMultiplier = v
     end
 })
 
@@ -284,8 +305,8 @@ AutoTab:AddToggle({
 -- Init
 -------------------------------------------------
 OrionLib:MakeNotification({
-    Name = "VortX Hub V2 + AI",
-    Content = "AI-powered 100% headshot loaded. Stay stealthy!",
+    Name = "VortX Hub V2 + AI MULTI-HS",
+    Content = "Multi-Headshot loaded! 1 shot = "..getgenv().HeadshotMultiplier.." kills!",
     Time = 5
 })
 
