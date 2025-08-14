@@ -1,5 +1,5 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTX HUB V2  |  ORIONLIB EDITION + AI MULTI-HS
+-- VORTEX HUB V3  |  AI WALLBANG HEADSHOT + BRING ALL
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 -- Variables
 local LocalPlayer = Players.LocalPlayer
@@ -15,10 +16,10 @@ local Mouse = LocalPlayer:GetMouse()
 
 -- Window
 local Window = OrionLib:MakeWindow({
-    Name = "VortX Hub V2 + AI MULTI-HS",
+    Name = "Vortex Hub V3 | Bring All + Headshot",
     HidePremium = false,
     SaveConfig = true,
-    ConfigFolder = "VortX_Configs"
+    ConfigFolder = "Vortex_Configs"
 })
 
 -- Tabs
@@ -26,226 +27,232 @@ local CombatTab = Window:MakeTab({Name = "Combat"})
 local AutoTab   = Window:MakeTab({Name = "Auto"})
 
 -- Globals
-getgenv().AimbotEnabled       = false
-getgenv().BringPlayersEnabled = false
-getgenv().InfiniteAmmoEnabled = false
-getgenv().AutoCollectEnabled  = false
-getgenv().AntiDetection       = false
-getgenv().MultiHeadshot       = false
-getgenv().HeadshotMultiplier  = 5 -- Jumlah orang mati sekali tembak
+getgenv().SilentAimEnabled   = false
+getgenv().WallbangEnabled    = false
+getgenv().InfiniteAmmo       = false
+getgenv().AutoCollect        = false
+getgenv().AntiDetection      = false
+getgenv().BringAllEnabled    = false
+getgenv().BringDistance      = 5
+getgenv().FOV                = 180
+getgenv().HitChance          = 100
 
 -------------------------------------------------
--- 1.  Bring Players (Auto-reconnect setelah mati)
+-- 1.  BRING ALL PLAYERS
 -------------------------------------------------
-local teleportDistance = 5
-
-local function setTeleportDistance(studs)
-    teleportDistance = math.max(tonumber(studs) or 5, 1)
-end
-
-local function getTargetPosition()
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local root = char:FindFirstChild("HumanoidRootPart")
-    return root and root.Position + (root.CFrame.LookVector * teleportDistance)
-end
-
-RunService.RenderStepped:Connect(function()
-    if not getgenv().BringPlayersEnabled then return end
-    local targetPos = getTargetPosition()
-    if not targetPos then return end
-
-    for _, mob in ipairs(workspace:WaitForChild("Mobs"):GetChildren()) do
-        if mob:IsA("Model") and mob.PrimaryPart then
-            mob:SetPrimaryPartCFrame(CFrame.new(targetPos))
-        end
+local function GetMyPosition()
+    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local Root = Character:FindFirstChild("HumanoidRootPart")
+    if Root then
+        return Root.Position + (Root.CFrame.LookVector * getgenv().BringDistance)
     end
-end)
-
--------------------------------------------------
--- 2.  AI MULTI-HEADSHOT SYSTEM
--------------------------------------------------
-local GRAVITY = workspace.Gravity
-local BULLET_SPEED = 3000 -- Sesuaikan dengan game
-local MAX_ITERATIONS = 15
-
--- Fungsi untuk prediksi tepat ke kepala
-local function PredictHeadPosition(player)
-    local char = player.Character
-    if not char or not char:FindFirstChild("Head") then return nil end
-    
-    local head = char.Head
-    local vel = head.Velocity
-    local pos = head.Position
-    
-    -- Hitung waktu travel dengan Newton-Raphson
-    local distance = (pos - Camera.CFrame.Position).Magnitude
-    local t = distance / BULLET_SPEED
-    
-    for i = 1, MAX_ITERATIONS do
-        local drop = 0.5 * GRAVITY * t * t
-        local error = distance - BULLET_SPEED * math.sqrt(t^2 - ((drop - vel.Y * t) / BULLET_SPEED)^2)
-        t = t - error / BULLET_SPEED
-    end
-    
-    local predicted = pos + vel * t + Vector3.new(0, -0.5 * GRAVITY * t^2, 0)
-    return predicted
+    return nil
 end
 
--- Fungsi untuk tembak langsung ke kepala
-local function ShootAtHead(player)
-    local predicted = PredictHeadPosition(player)
-    if not predicted then return end
+local function BringPlayers()
+    if not getgenv().BringAllEnabled then return end
     
-    -- Buat remote event khusus untuk headshot
-    if ReplicatedStorage:FindFirstChild("Shoot") then
-        -- Kirim posisi kepala yang diprediksi
-        ReplicatedStorage.Shoot:FireServer(predicted)
-    end
-end
-
--- Fungsi untuk multi-headshot
-local function MultiHeadshot()
-    if not getgenv().MultiHeadshot then return end
+    local MyPos = GetMyPosition()
+    if not MyPos then return end
     
-    local targets = {}
-    local count = 0
-    
-    -- Kumpulkan semua pemain yang valid
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer then continue end
-        local char = plr.Character
-        if not char or not char:FindFirstChild("Head") then continue end
-        
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then continue end
-        
-        -- Cek apakah pemain dalam layar
-        local headPos = PredictHeadPosition(plr)
-        if headPos then
-            local screen, onScreen = Camera:WorldToViewportPoint(headPos)
-            if onScreen then
-                table.insert(targets, plr)
-                count = count + 1
-                if count >= getgenv().HeadshotMultiplier then break end
+    -- Bring actual players
+    for _, Player in ipairs(Players:GetPlayers()) do
+        if Player ~= LocalPlayer and Player.Character then
+            local Root = Player.Character:FindFirstChild("HumanoidRootPart")
+            if Root then
+                Root.CFrame = CFrame.new(MyPos + Vector3.new(math.random(-2,2), 0, math.random(-2,2)))
             end
         end
     end
     
-    -- TEMBAK SEMUA TARGET SEKALIGUS
-    for _, target in ipairs(targets) do
-        ShootAtHead(target)
+    -- Bring mobs/NPCs if they exist
+    local MobsFolder = Workspace:FindFirstChild("Mobs") or Workspace:FindFirstChild("NPCs")
+    if MobsFolder then
+        for _, Mob in ipairs(MobsFolder:GetChildren()) do
+            if Mob:IsA("Model") and Mob.PrimaryPart then
+                Mob:SetPrimaryPartCFrame(CFrame.new(MyPos))
+            end
+        end
     end
 end
 
--- Hook ke mouse click untuk trigger multi-headshot
-Mouse.Button1Down:Connect(function()
-    if getgenv().MultiHeadshot then
-        MultiHeadshot()
-    end
-end)
+RunService.Heartbeat:Connect(BringPlayers)
 
--- Alternative: Hook ke remote event untuk auto-trigger
-local oldFireServer
-oldFireServer = hookfunction(getrawmetatable(game).__namecall, newcclosure(function(self, ...)
-    local args = {...}
-    local method = getnamecallmethod()
+-------------------------------------------------
+-- 2.  AI WALLBANG HEADSHOT
+-------------------------------------------------
+local Gravity = workspace.Gravity
+local BulletSpeed = 4500
+
+local function PredictHead(Player)
+    local Character = Player.Character
+    if not Character or not Character:FindFirstChild("Head") then return nil end
     
-    if method == "FireServer" and tostring(self) == "Shoot" and getgenv().MultiHeadshot then
-        MultiHeadshot()
-        return -- Block tembakan asli
+    local Head = Character.Head
+    local Velocity = Head.Velocity
+    local Position = Head.Position
+    
+    local Distance = (Position - Camera.CFrame.Position).Magnitude
+    local Time = Distance / BulletSpeed
+    
+    -- Simple but effective prediction
+    local Predicted = Position + Velocity * Time + Vector3.new(0, -0.5 * Gravity * Time * Time, 0)
+    return Predicted
+end
+
+local function CheckWallbang(TargetPos)
+    if getgenv().WallbangEnabled then return true end
+    
+    local RaycastParams = RaycastParams.new()
+    RaycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    RaycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    
+    local Direction = (TargetPos - Camera.CFrame.Position).Unit
+    local RaycastResult = Workspace:Raycast(Camera.CFrame.Position, Direction * 5000, RaycastParams)
+    
+    return not RaycastResult or RaycastResult.Instance:IsDescendantOf(TargetPos.Parent)
+end
+
+local function GetTarget()
+    local Closest, Distance = nil, getgenv().FOV
+    
+    for _, Player in ipairs(Players:GetPlayers()) do
+        if Player == LocalPlayer then continue end
+        
+        local Character = Player.Character
+        if not Character or not Character:FindFirstChild("Head") then continue end
+        
+        local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+        if not Humanoid or Humanoid.Health <= 0 then continue end
+        
+        local HeadPos = PredictHead(Player)
+        if not HeadPos then continue end
+        
+        local ScreenPos, OnScreen = Camera:WorldToViewportPoint(HeadPos)
+        if not OnScreen then continue end
+        
+        local MouseDistance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(ScreenPos.X, ScreenPos.Y)).Magnitude
+        
+        if MouseDistance <= Distance then
+            if CheckWallbang(HeadPos) then
+                Closest = {
+                    Player = Player,
+                    Position = HeadPos
+                }
+            end
+        end
     end
     
-    return oldFireServer(self, ...)
+    return Closest
+end
+
+-- Silent Aim Hook
+local OldNamecall
+OldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(Self, ...)
+    local Args = {...}
+    local Method = getnamecallmethod()
+    
+    if getgenv().SilentAimEnabled and Method == "FireServer" and tostring(Self) == "Shoot" then
+        local Target = GetTarget()
+        if Target then
+            -- Force headshot
+            Args[1] = Target.Position
+            Args[2] = Target.Player.Character.Head
+            return OldNamecall(Self, unpack(Args))
+        end
+    end
+    
+    return OldNamecall(Self, ...)
 end))
 
 -------------------------------------------------
--- 3.  Infinite Ammo
--------------------------------------------------
-RunService.RenderStepped:Connect(function()
-    if not getgenv().InfiniteAmmoEnabled or not LocalPlayer.Character then return end
-    for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
-        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
-            tool.Ammo = 9999
+-- 3.  INFINITE AMMO (FORCE)
+------------------------------------------------
+local function ForceInfiniteAmmo()
+    if not getgenv().InfiniteAmmo then return end
+    
+    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local Backpack = LocalPlayer.Backpack
+    
+    local function UpdateContainer(Container)
+        for _, Tool in ipairs(Container:GetChildren()) do
+            if Tool:IsA("Tool") then
+                for _, Ammo in ipairs(Tool:GetDescendants()) do
+                    if Ammo.Name:lower():find("ammo") or Ammo.Name:lower():find("clip") then
+                        Ammo.Value = 9999
+                    end
+                end
+            end
         end
     end
-    for _, tool in ipairs(LocalPlayer.Character:GetChildren()) do
-        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
-            tool.Ammo = 9999
-        end
-    end
-end)
+    
+    UpdateContainer(Backpack)
+    UpdateContainer(Character)
+end
+
+RunService.Heartbeat:Connect(ForceInfiniteAmmo)
+LocalPlayer.CharacterAdded:Connect(ForceInfiniteAmmo)
 
 -------------------------------------------------
--- 4.  Auto Collect
+-- 4.  AUTO COLLECT
 -------------------------------------------------
-local function AutoCollect()
-    if not LocalPlayer.Character then return end
-    local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    for _, part in ipairs(workspace:GetDescendants()) do
-        if part:IsA("Part") and (part.Name:lower() == "coin" or part.Name:lower() == "heal") then
-            local dist = (part.Position - root.Position).Magnitude
-            if dist <= 50 then
-                part.CFrame = root.CFrame
+local function AutoCollectItems()
+    if not getgenv().AutoCollect then return end
+    
+    local Character = LocalPlayer.Character
+    if not Character then return end
+    
+    local Root = Character:FindFirstChild("HumanoidRootPart")
+    if not Root then return end
+    
+    for _, Item in ipairs(Workspace:GetDescendants()) do
+        if Item:IsA("BasePart") and (Item.Name:lower():find("coin") or Item.Name:lower():find("money") or Item.Name:lower():find("heal")) then
+            if (Item.Position - Root.Position).Magnitude <= 50 then
+                Item.CFrame = Root.CFrame
             end
         end
     end
 end
 
-RunService.RenderStepped:Connect(function()
-    if getgenv().AutoCollectEnabled then AutoCollect() end
-end)
+RunService.Heartbeat:Connect(AutoCollectItems)
 
 -------------------------------------------------
--- 5.  Anti-Detection
---------------------------------------------------
--- Spoof mouse position untuk menghindari deteksi pattern
-local realMouse = Mouse
-local spoofedMouse = setmetatable({}, {
-    __index = function(self, key)
-        if key == "Hit" or key == "Target" then
-            -- Return valid mouse data tanpa pattern mencurigakan
-            return realMouse[key]
-        end
-        return realMouse[key]
+-- 5.  ANTI-DETECTION
+------------------------------------------------
+local OldIndex = nil
+OldIndex = hookmetamethod(game, "__index", newcclosure(function(Self, Key)
+    if getgenv().AntiDetection and Key == "Velocity" and Self.Name == "HumanoidRootPart" then
+        return Vector3.new(0, 0, 0)
     end
-})
-
--- Random delay untuk setiap tembakan
-local function RandomDelay()
-    if getgenv().AntiDetection then
-        return math.random(10, 50) / 1000 -- 10-50ms delay
-    end
-    return 0
-end
+    return OldIndex(Self, Key)
+end))
 
 -------------------------------------------------
--- 6.  UI Elements
--------------------------------------------------
+-- 6.  UI SECTION
+------------------------------------------------
 CombatTab:AddToggle({
-    Name = "MULTI HEADSHOT (1 Kill = 5 Dead)",
+    Name = "Silent Aimbot (Head)",
     Default = false,
     Callback = function(v)
-        getgenv().MultiHeadshot = v
+        getgenv().SilentAimEnabled = v
         OrionLib:MakeNotification({
-            Name = "Multi Headshot",
-            Content = v and "MULTI HS ON - 1 shot 5 kills!" or "MULTI HS OFF",
-            Time = 4
+            Name = "Aimbot",
+            Content = v and "Headshot Aimbot ENABLED" or "Headshot Aimbot DISABLED",
+            Time = 3
         })
     end
 })
 
-CombatTab:AddSlider({
-    Name = "Jumlah Kill Sekali Tembak",
-    Min = 1,
-    Max = 10,
-    Default = 5,
-    Color = Color3.fromRGB(255, 0, 0),
-    Increment = 1,
-    ValueName = "Orang",
+CombatTab:AddToggle({
+    Name = "Wallbang (Through Walls)",
+    Default = false,
     Callback = function(v)
-        getgenv().HeadshotMultiplier = v
+        getgenv().WallbangEnabled = v
+        OrionLib:MakeNotification({
+            Name = "Wallbang",
+            Content = v and "Wallbang ENABLED" or "Wallbang DISABLED",
+            Time = 3
+        })
     end
 })
 
@@ -253,38 +260,64 @@ CombatTab:AddToggle({
     Name = "Bring All Players",
     Default = false,
     Callback = function(v)
-        getgenv().BringPlayersEnabled = v
+        getgenv().BringAllEnabled = v
         OrionLib:MakeNotification({
             Name = "Bring Players",
-            Content = v and "Bring Players ON" or "Bring Players OFF",
-            Time = 4
+            Content = v and "Bring All ENABLED" or "Bring All DISABLED",
+            Time = 3
         })
     end
 })
 
+CombatTab:AddSlider({
+    Name = "Bring Distance",
+    Min = 1,
+    Max = 50,
+    Default = 5,
+    Color = Color3.fromRGB(255, 0, 0),
+    Increment = 1,
+    ValueName = "Studs",
+    Callback = function(v)
+        getgenv().BringDistance = v
+    end
+})
+
 CombatTab:AddToggle({
-    Name = "Infinite Ammo (9999)",
+    Name = "Infinite Ammo",
     Default = false,
     Callback = function(v)
-        getgenv().InfiniteAmmoEnabled = v
+        getgenv().InfiniteAmmo = v
         OrionLib:MakeNotification({
-            Name = "Infinite Ammo",
-            Content = v and "Infinite Ammo ON" or "Infinite Ammo OFF",
-            Time = 4
+            Name = "Ammo",
+            Content = v and "Infinite Ammo ENABLED" or "Ammo DISABLED",
+            Time = 3
         })
     end
 })
 
 CombatTab:AddToggle({
-    Name = "Anti-Detection (Stealth)",
+    Name = "Anti-Detection",
     Default = false,
     Callback = function(v)
         getgenv().AntiDetection = v
         OrionLib:MakeNotification({
-            Name = "Anti-Detection",
-            Content = v and "Stealth ON – Undetectable" or "Stealth OFF",
-            Time = 4
+            Name = "Stealth",
+            Content = v and "Anti-Detection ENABLED" or "Stealth DISABLED",
+            Time = 3
         })
+    end
+})
+
+CombatTab:AddSlider({
+    Name = "FOV Radius",
+    Min = 10,
+    Max = 360,
+    Default = 180,
+    Color = Color3.fromRGB(0, 255, 0),
+    Increment = 1,
+    ValueName = "FOV",
+    Callback = function(v)
+        getgenv().FOV = v
     end
 })
 
@@ -292,21 +325,21 @@ AutoTab:AddToggle({
     Name = "Auto Collect",
     Default = false,
     Callback = function(v)
-        getgenv().AutoCollectEnabled = v
+        getgenv().AutoCollect = v
         OrionLib:MakeNotification({
-            Name = "Auto Collect",
-            Content = v and "Auto Collect ON" or "Auto Collect OFF",
-            Time = 4
+            Name = "Collector",
+            Content = v and "Auto Collect ENABLED" or "Collector DISABLED",
+            Time = 3
         })
     end
 })
 
 -------------------------------------------------
--- Init
+-- INIT
 -------------------------------------------------
 OrionLib:MakeNotification({
-    Name = "VortX Hub V2 + AI MULTI-HS",
-    Content = "Multi-Headshot loaded! 1 shot = "..getgenv().HeadshotMultiplier.." kills!",
+    Name = "Vortex Hub V3",
+    Content = "All features loaded successfully!",
     Time = 5
 })
 
