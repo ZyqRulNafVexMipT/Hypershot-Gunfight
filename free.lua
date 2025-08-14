@@ -1,56 +1,19 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V10 | ULTIMATE EDITION
+-- VORTEX HUB V11 | ULTIMATE EDITION
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
--- Orion Library Initialization
-local OrionLib = nil
-local function InitializeOrion()
-    local Success, Result = pcall(function()
-        -- Try multiple reliable sources for OrionLib
-        local sources = {
-            "https://raw.githubusercontent.com/shlexware/Orion/main/source", -- Official repository
-            "https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua", -- Backup source
-        }
-        
-        for _, source in ipairs(sources) do
-            local content = game:HttpGet(source)
-            local loaded = loadstring(content)
-            if typeof(loaded) == "function" then
-                return loaded()
-            end
-        end
-        
-        return nil
-    end)
-    
-    if Success and Result then
-        OrionLib = Result
-    else
-        warn("OrionLib failed to load. Please ensure your internet connection is working.")
-    end
-end
-
-InitializeOrion()
-
--- If OrionLib failed to load, don't proceed
-if not OrionLib then
-    return
-end
-
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-
--- Variables
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
--- Main Window
+-- Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub V10 | Ultimate Edition",
+    Name = "Vortex Hub V11 | Ultimate Edition",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "Vortex_Configs"
@@ -71,14 +34,16 @@ local ESP_Config = {
     TeamCheck = false
 }
 
--- Drawing Management
+-- Drawing Table
 local Drawings = {}
 
--- Functions for ESP
+-- Helpers
+local function root(char) return char and char:FindFirstChild("HumanoidRootPart") end
+local function head(char) return char and char:FindFirstChild("Head") end
+
+-- ESP Functions
 local function CreateESPBox(player)
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    local rootPart = player.Character.HumanoidRootPart
-    
+    if not player.Character or not root(player.Character) then return end
     local espBox = Drawing.new("Square")
     espBox.Visible = false
     espBox.Thickness = ESP_Config.Thickness
@@ -97,7 +62,7 @@ local function CreateESPBox(player)
     table.insert(Drawings, {espBox, espName, player})
     
     RunService.Heartbeat:Connect(function()
-        if not ESP_Config.Enabled or not rootPart or not rootPart.Parent or rootPart.Parent ~= player.Character then
+        if not ESP_Config.Enabled or not root(player.Character) then
             espBox.Visible = false
             espName.Visible = false
             return
@@ -109,7 +74,7 @@ local function CreateESPBox(player)
             return
         end
         
-        local Vector, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+        local Vector, onScreen = Camera:WorldToViewportPoint(root(player.Character).Position)
         if onScreen then
             local Size = Vector2.new(150, 300)
             espBox.Size = Size
@@ -129,8 +94,8 @@ end
 local function ToggleESP(v)
     ESP_Config.Enabled = v
     for _, drawing in ipairs(Drawings) do
-        drawing[1].Visible = v and drawing[3].Character and drawing[3].Character:FindFirstChild("HumanoidRootPart") and (not ESP_Config.TeamCheck or drawing[3].Team ~= LocalPlayer.Team)
-        drawing[2].Visible = v and drawing[3].Character and drawing[3].Character:FindFirstChild("HumanoidRootPart") and (not ESP_Config.TeamCheck or drawing[3].Team ~= LocalPlayer.Team)
+        drawing[1].Visible = v and drawing[3].Character and root(drawing[3].Character) and (not ESP_Config.TeamCheck or drawing[3].Team ~= LocalPlayer.Team)
+        drawing[2].Visible = v and drawing[3].Character and root(drawing[3].Character) and (not ESP_Config.TeamCheck or drawing[3].Team ~= LocalPlayer.Team)
     end
 end
 
@@ -271,16 +236,6 @@ local function BringPlayers()
             end
         end
     end
-    
-    -- Bring mobs/NPCs if they exist
-    local MobsFolder = Workspace:FindFirstChild("Mobs") or Workspace:FindFirstChild("NPCs")
-    if MobsFolder then
-        for _, Mob in ipairs(MobsFolder:GetChildren()) do
-            if Mob:IsA("Model") and Mob.PrimaryPart then
-                Mob:SetPrimaryPartCFrame(CFrame.new(MyPos))
-            end
-        end
-    end
 end
 
 RunService.Heartbeat:Connect(BringPlayers)
@@ -290,16 +245,15 @@ RunService.Heartbeat:Connect(BringPlayers)
 -------------------------------------------------
 local function PredictHead(player)
     local char = player.Character
-    if not char or not char:FindFirstChild("Head") then return nil end
+    if not char or not head(char) then return nil end
     
-    local head = char.Head
-    local velocity = head.Velocity
-    local pos = head.Position
+    local velocity = head(char).Velocity
+    local position = head(char).Position
     
-    local distance = (pos - Camera.CFrame.Position).Magnitude
+    local distance = (position - Camera.CFrame.Position).Magnitude
     local time = distance / BulletSpeed
     
-    return pos + velocity * time + Vector3.new(0, -0.5 * Gravity * time^2, 0)
+    return position + velocity * time + Vector3.new(0, -0.5 * Gravity * time^2, 0)
 end
 
 local function GetTarget()
@@ -308,7 +262,7 @@ local function GetTarget()
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr == LocalPlayer then continue end
         local char = plr.Character
-        if not char or not char:FindFirstChild("Head") then continue end
+        if not char or not head(char) then continue end
         
         local humanoid = char:FindFirstChildOfClass("Humanoid")
         if not humanoid or humanoid.Health <= 0 then continue end
@@ -332,7 +286,7 @@ setreadonly(getrawmetatable(game), false)
 getrawmetatable(game).__index = newcclosure(function(t, k)
     if getgenv().SilentAimEnabled and k == "CurrentCamera" and t == workspace then
         local plr = GetTarget()
-        if plr and plr.Character and plr.Character:FindFirstChild("Head") then
+        if plr and plr.Character and head(plr.Character) then
             local predPos = PredictHead(plr)
             return {CurrentCamera = Camera, TargetPoint = predPos}
         end
@@ -361,10 +315,7 @@ end
 -------------------------------------------------
 local function UpdateAmmo()
     if not getgenv().InfiniteAmmo then return end
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local backpack = LocalPlayer.Backpack
-    
-    for _, container in ipairs({backpack, char}) do
+    local function scan(container)
         for _, tool in ipairs(container:GetChildren()) do
             if tool:IsA("Tool") then
                 for _, child in ipairs(tool:GetDescendants()) do
@@ -375,9 +326,12 @@ local function UpdateAmmo()
             end
         end
     end
+    scan(LocalPlayer.Backpack)
+    scan(LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait())
 end
 
 RunService.Heartbeat:Connect(UpdateAmmo)
+LocalPlayer.CharacterAdded:Connect(UpdateAmmo)
 
 -------------------------------------------------
 -- AUTO COLLECT ITEMS
@@ -441,12 +395,12 @@ RunService.Heartbeat:Connect(AutoCollectWeapons)
 -------------------------------------------------
 -- ANTI-DETECTION
 -------------------------------------------------
-local oldIndex = nil
-oldIndex = hookmetamethod(game, "__index", newcclosure(function(t, k)
-    if getgenv().AntiDetection and k == "Velocity" and t:IsA("HumanoidRootPart") then
+local OldIndex = nil
+OldIndex = hookmetamethod(game, "__index", newcclosure(function(Self, Key)
+    if getgenv().AntiDetection and Key == "Velocity" and Self.Name == "HumanoidRootPart" then
         return Vector3.new(0, 0.1, 0)
     end
-    return oldIndex(t, k)
+    return OldIndex(Self, Key)
 end))
 
 -------------------------------------------------
@@ -593,7 +547,7 @@ local function HitboxExpander()
     if not getgenv().HitboxExpander then return end
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            local head = player.Character:FindFirstChild("Head")
+            local head = head(player.Character)
             if head then
                 head.Size = Vector3.new(8, 8, 8) -- Expand hitbox
             end
@@ -939,7 +893,7 @@ AutoFarmTab:AddToggle({
 })
 
 OrionLib:MakeNotification({
-    Name = "Vortex Hub V10",
+    Name = "Vortex Hub V11",
     Content = "All features loaded successfully!",
     Time = 5
 })
