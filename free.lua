@@ -189,8 +189,8 @@ getgenv().AutoCollectCoins   = false
 getgenv().AutoCollectHeals   = false
 getgenv().AutoCollectWeapons = false
 getgenv().AntiDetection      = false
-getgenv().BringAllEnabled    = false
-getgenv().BringDistance      = 5
+getgenv().BringPlayersEnabled    = false
+getgenv().teleportDistance      = 5
 getgenv().FOV                = 180
 getgenv().AutoJump           = false
 getgenv().NoClip             = false
@@ -212,33 +212,43 @@ local BulletSpeed = 4500
 -------------------------------------------------
 -- Bring All Players
 -------------------------------------------------
-local function GetMyPosition()
-    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local Root = Character:FindFirstChild("HumanoidRootPart")
-    if Root then
-        return Root.Position + (Root.CFrame.LookVector * getgenv().BringDistance)
-    end
-    return nil
+local teleportDistance = 5
+
+local function setTeleportDistance(studs)
+    teleportDistance = math.max(tonumber(studs) or 5, 1)
 end
 
-local function BringPlayers()
-    if not getgenv().BringAllEnabled then return end
-    
-    local MyPos = GetMyPosition()
-    if not MyPos then return end
-    
+local function getTargetPosition()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local root = char:FindFirstChild("HumanoidRootPart")
+    return root and root.Position + (root.CFrame.LookVector * teleportDistance)
+end
+
+RunService.RenderStepped:Connect(function()
+    if not getgenv().BringPlayersEnabled then return end
+    local targetPos = getTargetPosition()
+    if not targetPos then return end
+
     -- Bring actual players
     for _, Player in ipairs(Players:GetPlayers()) do
         if Player ~= LocalPlayer and Player.Character then
             local Root = Player.Character:FindFirstChild("HumanoidRootPart")
             if Root then
-                Root.CFrame = CFrame.new(MyPos + Vector3.new(math.random(-2,2), 0, math.random(-2,2)))
+                Root.CFrame = CFrame.new(targetPos + Vector3.new(math.random(-2,2), 0, math.random(-2,2)))
             end
         end
     end
-end
-
-RunService.Heartbeat:Connect(BringPlayers)
+    
+    -- Bring mobs/NPCs if they exist
+    local MobsFolder = Workspace:FindFirstChild("Mobs") or Workspace:FindFirstChild("NPCs")
+    if MobsFolder then
+        for _, Mob in ipairs(MobsFolder:GetChildren()) do
+            if Mob:IsA("Model") and Mob.PrimaryPart then
+                Mob:SetPrimaryPartCFrame(CFrame.new(targetPos))
+            end
+        end
+    end
+end)
 
 -------------------------------------------------
 -- Improved AI WALLBANG HEADSHOT
@@ -628,7 +638,7 @@ CombatTab:AddToggle({
     Name = "Bring All Players",
     Default = false,
     Callback = function(v)
-        getgenv().BringAllEnabled = v
+        getgenv().BringPlayersEnabled = v
         OrionLib:MakeNotification({
             Name = "Bring Players",
             Content = v and "Bring All ENABLED" or "Bring All DISABLED",
@@ -646,7 +656,7 @@ CombatTab:AddSlider({
     Increment = 1,
     ValueName = "Studs",
     Callback = function(v)
-        getgenv().BringDistance = v
+        getgenv().teleportDistance = v
     end
 })
 
