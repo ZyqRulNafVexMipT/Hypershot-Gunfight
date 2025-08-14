@@ -1,5 +1,5 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V4  |  ESP + IMPROVED AI
+-- VORTEX HUB V5  |  STABLE ESP + IMPROVED AI
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
@@ -16,7 +16,7 @@ local Mouse = LocalPlayer:GetMouse()
 
 -- Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub V4 | ESP + Advanced AI",
+    Name = "Vortex Hub V2.5| BEST HYPERSHOT SCRIPT",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "Vortex_Configs"
@@ -42,7 +42,6 @@ local Drawings = {}
 local function CreateESPBox(player)
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
     local rootPart = player.Character.HumanoidRootPart
-    local headPart = player.Character.Head
     
     local espBox = Drawing.new("Square")
     espBox.Visible = false
@@ -165,9 +164,8 @@ for _, player in ipairs(Players:GetPlayers()) do
     end
 end
 
--- Add ESP Boxes for new players
 Players.PlayerAdded:Connect(function(player)
-    task.wait(1) -- Wait for character to load
+    task.wait(1)
     CreateESPBox(player)
 end)
 
@@ -191,50 +189,21 @@ getgenv().AntiDetection      = false
 getgenv().BringAllEnabled    = false
 getgenv().BringDistance      = 5
 getgenv().FOV                = 180
-getgenv().HitChance          = 100
-getgenv().DirectionalKill    = false
-getgenv().RapidFire          = false
 
 -- AI Constants
 local Gravity = workspace.Gravity
 local BulletSpeed = 4500
-local PredictionTime = 0.1337
 
 -------------------------------------------------
--- Bring All Players
+--Bring All Players (Original Method)
 -------------------------------------------------
-local function GetMyPosition()
-    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local Root = Character:FindFirstChild("HumanoidRootPart")
-    if Root then
-        return Root.Position + (Root.CFrame.LookVector * getgenv().BringDistance)
-    end
-    return nil
-end
-
 local function BringPlayers()
     if not getgenv().BringAllEnabled then return end
+    local targetPos = (LocalPlayer.Character.HumanoidRootPart.Position + LocalPlayer.Character.HumanoidRootPart.CFrame.LookVector * 5)
     
-    local MyPos = GetMyPosition()
-    if not MyPos then return end
-    
-    -- Bring actual players
-    for _, Player in ipairs(Players:GetPlayers()) do
-        if Player ~= LocalPlayer and Player.Character then
-            local Root = Player.Character:FindFirstChild("HumanoidRootPart")
-            if Root then
-                Root.CFrame = CFrame.new(MyPos + Vector3.new(math.random(-2,2), 0, math.random(-2,2)))
-            end
-        end
-    end
-    
-    -- Bring mobs/NPCs if they exist
-    local MobsFolder = Workspace:FindFirstChild("Mobs") or Workspace:FindFirstChild("NPCs")
-    if MobsFolder then
-        for _, Mob in ipairs(MobsFolder:GetChildren()) do
-            if Mob:IsA("Model") and Mob.PrimaryPart then
-                Mob:SetPrimaryPartCFrame(CFrame.new(MyPos))
-            end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            plr.Character:FindFirstChild("HumanoidRootPart").CFrame = CFrame.new(targetPos)
         end
     end
 end
@@ -242,133 +211,98 @@ end
 RunService.Heartbeat:Connect(BringPlayers)
 
 -------------------------------------------------
--- AI WALLBANG HEADSHOT
+-- Improved AI WALLBANG HEADSHOT
 -------------------------------------------------
-local function PredictHead(Player)
-    local Character = Player.Character
-    if not Character or not Character:FindFirstChild("Head") then return nil end
+local function PredictHead(player)
+    local char = player.Character
+    if not char or not char:FindFirstChild("Head") then return nil end
     
-    local Head = Character.Head
-    local Velocity = Head.Velocity
-    local Position = Head.Position
+    local head = char.Head
+    local velocity = head.Velocity
+    local pos = head.Position
     
-    local Distance = (Position - Camera.CFrame.Position).Magnitude
-    local Time = Distance / BulletSpeed
+    local distance = (pos - Camera.CFrame.Position).Magnitude
+    local time = distance / BulletSpeed
     
-    -- Simple but effective prediction
-    local Predicted = Position + Velocity * Time + Vector3.new(0, -0.5 * Gravity * Time * Time, 0)
-    return Predicted
-end
-
-local function CheckWallbang(TargetPos)
-    if getgenv().WallbangEnabled then return true end
-    
-    local RaycastParams = RaycastParams.new()
-    RaycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-    RaycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    
-    local Direction = (TargetPos - Camera.CFrame.Position).Unit
-    local RaycastResult = Workspace:Raycast(Camera.CFrame.Position, Direction * 5000, RaycastParams)
-    
-    return not RaycastResult or RaycastResult.Instance:IsDescendantOf(TargetPos.Parent)
+    return pos + velocity * time + Vector3.new(0, -0.5 * Gravity * time^2, 0)
 end
 
 local function GetTarget()
-    local Closest, Distance = nil, getgenv().FOV
+    local closest, minDist = nil, getgenv().FOV
     
-    for _, Player in ipairs(Players:GetPlayers()) do
-        if Player == LocalPlayer then continue end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr == LocalPlayer then continue end
+        local char = plr.Character
+        if not char or not char:FindFirstChild("Head") then continue end
         
-        local Character = Player.Character
-        if not Character or not Character:FindFirstChild("Head") then continue end
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then continue end
         
-        local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-        if not Humanoid or Humanoid.Health <= 0 then continue end
+        local predPos = PredictHead(plr)
+        local screenPos, onScreen = Camera:WorldToViewportPoint(predPos)
         
-        local HeadPos = PredictHead(Player)
-        if not HeadPos then continue end
-        
-        local ScreenPos, OnScreen = Camera:WorldToViewportPoint(HeadPos)
-        if not OnScreen then continue end
-        
-        local MouseDistance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(ScreenPos.X, ScreenPos.Y)).Magnitude
-        
-        if MouseDistance <= Distance then
-            if CheckWallbang(HeadPos) then
-                Closest = {
-                    Player = Player,
-                    Position = HeadPos
-                }
+        if onScreen then
+            local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+            if dist < minDist then
+                closest, minDist = plr, dist
             end
         end
     end
     
-    return Closest
+    return closest
 end
 
--- Silent Aim Hook
-local OldNamecall
-OldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(Self, ...)
-    local Args = {...}
-    local Method = getnamecallmethod()
-    
-    if getgenv().SilentAimEnabled and Method == "FireServer" and tostring(Self) == "Shoot" then
-        local Target = GetTarget()
-        if Target then
-            -- Force headshot
-            Args[1] = Target.Position
-            Args[2] = Target.Player.Character.Head
-            return OldNamecall(Self, unpack(Args))
+local oldIndex = getrawmetatable(game).__index
+setreadonly(getrawmetatable(game), false)
+getrawmetatable(game).__index = newcclosure(function(t, k)
+    if getgenv().SilentAimEnabled and k == "CurrentCamera" and t == workspace then
+        local plr = GetTarget()
+        if plr and plr.Character and plr.Character:FindFirstChild("Head") then
+            local predPos = PredictHead(plr)
+            return {CurrentCamera = Camera, TargetPoint = predPos}
         end
     end
-    
-    return OldNamecall(Self, ...)
-end))
+    return oldIndex(t, k)
+end)
 
 -------------------------------------------------
--- INFINITE AMMO (FORCE)
-------------------------------------------------
-local function ForceInfiniteAmmo()
+-- REMADE INFINITE AMMO
+-------------------------------------------------
+local function UpdateAmmo()
     if not getgenv().InfiniteAmmo then return end
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local backpack = LocalPlayer.Backpack
     
-    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local Backpack = LocalPlayer.Backpack
-    
-    local function UpdateContainer(Container)
-        for _, Tool in ipairs(Container:GetChildren()) do
-            if Tool:IsA("Tool") then
-                for _, Ammo in ipairs(Tool:GetDescendants()) do
-                    if Ammo.Name:lower():find("ammo") or Ammo.Name:lower():find("clip") then
-                        Ammo.Value = 9999
+    for _, container in ipairs({backpack, char}) do
+        for _, tool in ipairs(container:GetChildren()) do
+            if tool:IsA("Tool") then
+                for _, child in ipairs(tool:GetDescendants()) do
+                    if child:IsA("NumberValue") and (child.Name:lower() == "ammo" or child.Name:lower() == "clip") then
+                        child.Value = 9999
                     end
                 end
             end
         end
     end
-    
-    UpdateContainer(Backpack)
-    UpdateContainer(Character)
 end
 
-RunService.Heartbeat:Connect(ForceInfiniteAmmo)
-LocalPlayer.CharacterAdded:Connect(ForceInfiniteAmmo)
+RunService.Heartbeat:Connect(UpdateAmmo)
 
 -------------------------------------------------
 -- AUTO COLLECT
 -------------------------------------------------
 local function AutoCollectItems()
     if not getgenv().AutoCollect then return end
+    local char = LocalPlayer.Character
+    if not char then return end
     
-    local Character = LocalPlayer.Character
-    if not Character then return end
+    local root = char.HumanoidRootPart
+    if not root then return end
     
-    local Root = Character:FindFirstChild("HumanoidRootPart")
-    if not Root then return end
-    
-    for _, Item in ipairs(Workspace:GetDescendants()) do
-        if Item:IsA("BasePart") and (Item.Name:lower():find("coin") or Item.Name:lower():find("money") or Item.Name:lower():find("heal")) then
-            if (Item.Position - Root.Position).Magnitude <= 50 then
-                Item.CFrame = Root.CFrame
+    for _, item in ipairs(Workspace:GetDescendants()) do
+        if item:IsA("BasePart") and (item.Name:lower():find("coin") or item.Name:lower():find("heal")) then
+            if (item.Position - root.Position).Magnitude <= 50 then
+                item.CFrame = root.CFrame
             end
         end
     end
@@ -378,65 +312,18 @@ RunService.Heartbeat:Connect(AutoCollectItems)
 
 -------------------------------------------------
 -- ANTI-DETECTION
-------------------------------------------------
-local OldIndex = nil
-OldIndex = hookmetamethod(game, "__index", newcclosure(function(Self, Key)
-    if getgenv().AntiDetection and Key == "Velocity" and Self.Name == "HumanoidRootPart" then
-        return Vector3.new(0, 0, 0)
+-------------------------------------------------
+local oldIndex = nil
+oldIndex = hookmetamethod(game, "__index", newcclosure(function(t, k)
+    if getgenv().AntiDetection and k == "Velocity" and t:IsA("HumanoidRootPart") then
+        return Vector3.new(0, 0.1, 0)
     end
-    return OldIndex(Self, Key)
+    return oldIndex(t, k)
 end))
 
 -------------------------------------------------
--- DIRECTIONAL KILL
--------------------------------------------------
-local function autoDirectionalKill()
-    if not getgenv().DirectionalKill then return end
-
-    local camPos = Camera.CFrame.Position
-    local lookDir = Camera.CFrame.LookVector
-
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer then continue end
-        local char = plr.Character
-        local hd = char and char:FindFirstChild("Head")
-        local h = char and char:FindFirstChildOfClass("Humanoid")
-        if not hd or not h or h.Health <= 0 then continue end
-
-        local vec = hd.Position - camPos
-        local dist = vec.Magnitude
-        if lookDir:Dot(vec.Unit) < 0.95 then continue end -- Wider cone for directional kill
-
-        -- Universal remote
-        if ReplicatedStorage:FindFirstChild("Shoot") then
-            ReplicatedStorage.Shoot:FireServer(hd.Position)
-        elseif ReplicatedStorage:FindFirstChild("Damage") then
-            ReplicatedStorage.Damage:FireServer(plr, 9e9)
-        else
-            local rem = ReplicatedStorage:FindFirstChildOfClass("RemoteEvent")
-            if rem then rem:FireServer(plr, hd.Position) end
-        end
-    end
-end
-
-RunService.Heartbeat:Connect(autoDirectionalKill)
-
--------------------------------------------------
--- RAPID FIRE
--------------------------------------------------
-Mouse.Button1Down:Connect(function()
-    if not getgenv().RapidFire then return end
-    while Mouse:IsMouseButtonPressed(0) and getgenv().RapidFire do
-        if ReplicatedStorage:FindFirstChild("Shoot") then
-            ReplicatedStorage.Shoot:FireServer()
-        end
-        task.wait(0.1) -- Rapid fire rate
-    end
-end)
-
--------------------------------------------------
 -- UI SECTION
-------------------------------------------------
+-------------------------------------------------
 CombatTab:AddToggle({
     Name = "Silent Aimbot (Head)",
     Default = false,
@@ -451,7 +338,7 @@ CombatTab:AddToggle({
 })
 
 CombatTab:AddToggle({
-    Name = "Wallbang (Through Walls)",
+    Name = "Wallbang",
     Default = false,
     Callback = function(v)
         getgenv().WallbangEnabled = v
@@ -528,32 +415,6 @@ CombatTab:AddSlider({
     end
 })
 
-CombatTab:AddToggle({
-    Name = "Directional Kill",
-    Default = false,
-    Callback = function(v)
-        getgenv().DirectionalKill = v
-        OrionLib:MakeNotification({
-            Name = "Directional Kill",
-            Content = v and "Directional Kill ENABLED" or "Directional Kill DISABLED",
-            Time = 3
-        })
-    end
-})
-
-CombatTab:AddToggle({
-    Name = "Rapid Fire",
-    Default = false,
-    Callback = function(v)
-        getgenv().RapidFire = v
-        OrionLib:MakeNotification({
-            Name = "Rapid Fire",
-            Content = v and "Rapid Fire ENABLED" or "Rapid Fire DISABLED",
-            Time = 3
-        })
-    end
-})
-
 AutoTab:AddToggle({
     Name = "Auto Collect",
     Default = false,
@@ -567,12 +428,31 @@ AutoTab:AddToggle({
     end
 })
 
--------------------------------------------------
--- INIT
--------------------------------------------------
+-- Additional Features
+CombatTab:AddToggle({
+    Name = "Auto Jump",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoJump = v
+        OrionLib:MakeNotification({
+            Name = "Auto Jump",
+            Content = v and "Auto Jump ENABLED" or "Auto Jump DISABLED",
+            Time = 3
+        })
+    end
+})
+
+Mouse.KeyDown:Connect(function(k)
+    if k == " " and getgenv().AutoJump then
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.Jump = true
+        end
+    end
+end)
+
 OrionLib:MakeNotification({
-    Name = "Vortex Hub V4",
-    Content = "All features loaded successfully!",
+    Name = "Vortex Hub V2.5 BETA",
+    Content = "Features loaded successfully!",
     Time = 5
 })
 
