@@ -24,7 +24,7 @@ local Window = OrionLib:MakeWindow({
 
 -- Tabs
 local CombatTab = Window:MakeTab({Name = "Combat"})
-local ESP_Tab = Window:MakeTab({Name = "ESP"})
+local ESPTab = Window:MakeTab({Name = "ESP"})
 
 -- ESP Configuration
 local ESP_Config = {
@@ -100,13 +100,13 @@ local function ToggleESP(v)
 end
 
 -- ESP UI
-ESP_Tab:AddToggle({
+ESPTab:AddToggle({
     Name = "Enable ESP",
     Default = false,
     Callback = ToggleESP
 })
 
-ESP_Tab:AddSlider({
+ESPTab:AddSlider({
     Name = "ESP Thickness",
     Min = 0.5,
     Max = 5,
@@ -122,7 +122,7 @@ ESP_Tab:AddSlider({
     end
 })
 
-ESP_Tab:AddColorpicker({
+ESPTab:AddColorpicker({
     Name = "ESP Color",
     Default = Color3.fromRGB(255, 0, 0),
     Callback = function(v)
@@ -134,7 +134,7 @@ ESP_Tab:AddColorpicker({
     end
 })
 
-ESP_Tab:AddSlider({
+ESPTab:AddSlider({
     Name = "ESP Transparency",
     Min = 0,
     Max = 1,
@@ -150,7 +150,7 @@ ESP_Tab:AddSlider({
     end
 })
 
-ESP_Tab:AddToggle({
+ESPTab:AddToggle({
     Name = "Team Check",
     Default = false,
     Callback = function(v)
@@ -181,12 +181,6 @@ Players.PlayerRemoving:Connect(function(player)
         end
     end
 end)
-
--- This is part one of the script
--- Continue with part two for the remaining features
--- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V4  |  ESP + IMPROVED AI (PART 2)
--- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 -- Global Flags
 getgenv().SilentAimEnabled   = false
@@ -525,4 +519,61 @@ CombatTab:AddSlider({
     Name = "FOV Radius",
     Min = 10,
     Max = 360,
-    Default
+    Default = 180,
+    Color = Color3.fromRGB(0, 255, 0),
+    Increment = 1,
+    ValueName = "FOV",
+    Callback = function(v)
+        getgenv().FOV = v
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Directional Kill",
+    Default = false,
+    Callback = function(v)
+        getgenv().DirectionalKill = v
+        OrionLib:MakeNotification({
+            Name = "Directional Kill",
+            Content = v and "Directional Kill ENABLED" or "Directional Kill DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Rapid Fire",
+    Default = false,
+    Callback = function(v)
+        getgenv().RapidFire = v
+        OrionLib:MakeNotification({
+            Name = "Rapid Fire",
+            Content = v and "Rapid Fire ENABLED" or "Rapid Fire DISABLED",
+            Time = 3
+        })
+    end
+})
+
+AutoTab:AddToggle({
+    Name = "Auto Collect",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoCollect = v
+        OrionLib:MakeNotification({
+            Name = "Collector",
+            Content = v and "Auto Collect ENABLED" or "Collector DISABLED",
+            Time = 3
+        })
+    end
+})
+
+-------------------------------------------------
+-- INIT
+-------------------------------------------------
+OrionLib:MakeNotification({
+    Name = "Vortex Hub V4",
+    Content = "All features loaded successfully!",
+    Time = 5
+})
+
+OrionLib:Init()
