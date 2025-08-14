@@ -1,53 +1,241 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB  |  WORKING VERSION
+-- VORTEX HUB V3  |  AI WALLBANG HEADSHOT + BRING ALL + DIRECTIONAL KILL
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1ghtmare1234/SCRIPTS/main/Orion.lua"))()
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
 local Camera = workspace.CurrentCamera
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
 
--------------------------------------------------
--- WINDOW
--------------------------------------------------
+-- Variables
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub | Auto-Kill + Bring",
+    Name = "Vortex Hub V3 | Bring All + Headshot + Directional Kill",
     HidePremium = false,
     SaveConfig = true,
-    ConfigFolder = "VortexCfg"
+    ConfigFolder = "Vortex_Configs"
 })
 
+-- Tabs
 local CombatTab = Window:MakeTab({Name = "Combat"})
 local AutoTab   = Window:MakeTab({Name = "Auto"})
 
--------------------------------------------------
--- CONFIG
--------------------------------------------------
-local cfg = {
-    autoKill = false,
-    wallbang = true,
-    bringAll = false,
-    infAmmo  = false,
-    collect  = false,
-    killDist = 1000,
-    bringDist = 5
-}
+-- Globals
+getgenv().SilentAimEnabled   = false
+getgenv().WallbangEnabled    = false
+getgenv().InfiniteAmmo       = false
+getgenv().AutoCollect        = false
+getgenv().AntiDetection      = false
+getgenv().BringAllEnabled    = false
+getgenv().BringDistance      = 5
+getgenv().FOV                = 180
+getgenv().HitChance          = 100
+getgenv().DirectionalKill    = false
+getgenv().RapidFire          = false
+
+-- AI Constants
+local Gravity = workspace.Gravity
+local BulletSpeed = 4500
+local PredictionTime = 0.1337
 
 -------------------------------------------------
--- HELPERS
+-- 1. BRING ALL PLAYERS
 -------------------------------------------------
-local function root(char) return char and char:FindFirstChild("HumanoidRootPart") end
-local function head(char) return char and char:FindFirstChild("Head") end
-local function hum(char) return char and char:FindFirstChildOfClass("Humanoid") end
+local function GetMyPosition()
+    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local Root = Character:FindFirstChild("HumanoidRootPart")
+    if Root then
+        return Root.Position + (Root.CFrame.LookVector * getgenv().BringDistance)
+    end
+    return nil
+end
+
+local function BringPlayers()
+    if not getgenv().BringAllEnabled then return end
+    
+    local MyPos = GetMyPosition()
+    if not MyPos then return end
+    
+    -- Bring actual players
+    for _, Player in ipairs(Players:GetPlayers()) do
+        if Player ~= LocalPlayer and Player.Character then
+            local Root = Player.Character:FindFirstChild("HumanoidRootPart")
+            if Root then
+                Root.CFrame = CFrame.new(MyPos + Vector3.new(math.random(-2,2), 0, math.random(-2,2)))
+            end
+        end
+    end
+    
+    -- Bring mobs/NPCs if they exist
+    local MobsFolder = Workspace:FindFirstChild("Mobs") or Workspace:FindFirstChild("NPCs")
+    if MobsFolder then
+        for _, Mob in ipairs(MobsFolder:GetChildren()) do
+            if Mob:IsA("Model") and Mob.PrimaryPart then
+                Mob:SetPrimaryPartCFrame(CFrame.new(MyPos))
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(BringPlayers)
 
 -------------------------------------------------
--- AUTO-KILL (Camera Direction)
+-- 2. AI WALLBANG HEADSHOT
 -------------------------------------------------
-RunService.Heartbeat:Connect(function()
-    if not cfg.autoKill then return end
+local function PredictHead(Player)
+    local Character = Player.Character
+    if not Character or not Character:FindFirstChild("Head") then return nil end
+    
+    local Head = Character.Head
+    local Velocity = Head.Velocity
+    local Position = Head.Position
+    
+    local Distance = (Position - Camera.CFrame.Position).Magnitude
+    local Time = Distance / BulletSpeed
+    
+    -- Simple but effective prediction
+    local Predicted = Position + Velocity * Time + Vector3.new(0, -0.5 * Gravity * Time * Time, 0)
+    return Predicted
+end
+
+local function CheckWallbang(TargetPos)
+    if getgenv().WallbangEnabled then return true end
+    
+    local RaycastParams = RaycastParams.new()
+    RaycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    RaycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    
+    local Direction = (TargetPos - Camera.CFrame.Position).Unit
+    local RaycastResult = Workspace:Raycast(Camera.CFrame.Position, Direction * 5000, RaycastParams)
+    
+    return not RaycastResult or RaycastResult.Instance:IsDescendantOf(TargetPos.Parent)
+end
+
+local function GetTarget()
+    local Closest, Distance = nil, getgenv().FOV
+    
+    for _, Player in ipairs(Players:GetPlayers()) do
+        if Player == LocalPlayer then continue end
+        
+        local Character = Player.Character
+        if not Character or not Character:FindFirstChild("Head") then continue end
+        
+        local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+        if not Humanoid or Humanoid.Health <= 0 then continue end
+        
+        local HeadPos = PredictHead(Player)
+        if not HeadPos then continue end
+        
+        local ScreenPos, OnScreen = Camera:WorldToViewportPoint(HeadPos)
+        if not OnScreen then continue end
+        
+        local MouseDistance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(ScreenPos.X, ScreenPos.Y)).Magnitude
+        
+        if MouseDistance <= Distance then
+            if CheckWallbang(HeadPos) then
+                Closest = {
+                    Player = Player,
+                    Position = HeadPos
+                }
+            end
+        end
+    end
+    
+    return Closest
+end
+
+-- Silent Aim Hook
+local OldNamecall
+OldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(Self, ...)
+    local Args = {...}
+    local Method = getnamecallmethod()
+    
+    if getgenv().SilentAimEnabled and Method == "FireServer" and tostring(Self) == "Shoot" then
+        local Target = GetTarget()
+        if Target then
+            -- Force headshot
+            Args[1] = Target.Position
+            Args[2] = Target.Player.Character.Head
+            return OldNamecall(Self, unpack(Args))
+        end
+    end
+    
+    return OldNamecall(Self, ...)
+end))
+
+-------------------------------------------------
+-- 3. INFINITE AMMO (FORCE)
+------------------------------------------------
+local function ForceInfiniteAmmo()
+    if not getgenv().InfiniteAmmo then return end
+    
+    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local Backpack = LocalPlayer.Backpack
+    
+    local function UpdateContainer(Container)
+        for _, Tool in ipairs(Container:GetChildren()) do
+            if Tool:IsA("Tool") then
+                for _, Ammo in ipairs(Tool:GetDescendants()) do
+                    if Ammo.Name:lower():find("ammo") or Ammo.Name:lower():find("clip") then
+                        Ammo.Value = 9999
+                    end
+                end
+            end
+        end
+    end
+    
+    UpdateContainer(Backpack)
+    UpdateContainer(Character)
+end
+
+RunService.Heartbeat:Connect(ForceInfiniteAmmo)
+LocalPlayer.CharacterAdded:Connect(ForceInfiniteAmmo)
+
+-------------------------------------------------
+-- 4. AUTO COLLECT
+-------------------------------------------------
+local function AutoCollectItems()
+    if not getgenv().AutoCollect then return end
+    
+    local Character = LocalPlayer.Character
+    if not Character then return end
+    
+    local Root = Character:FindFirstChild("HumanoidRootPart")
+    if not Root then return end
+    
+    for _, Item in ipairs(Workspace:GetDescendants()) do
+        if Item:IsA("BasePart") and (Item.Name:lower():find("coin") or Item.Name:lower():find("money") or Item.Name:lower():find("heal")) then
+            if (Item.Position - Root.Position).Magnitude <= 50 then
+                Item.CFrame = Root.CFrame
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(AutoCollectItems)
+
+-------------------------------------------------
+-- 5. ANTI-DETECTION
+------------------------------------------------
+local OldIndex = nil
+OldIndex = hookmetamethod(game, "__index", newcclosure(function(Self, Key)
+    if getgenv().AntiDetection and Key == "Velocity" and Self.Name == "HumanoidRootPart" then
+        return Vector3.new(0, 0, 0)
+    end
+    return OldIndex(Self, Key)
+end))
+
+-------------------------------------------------
+-- 6. DIRECTIONAL KILL
+-------------------------------------------------
+local function autoDirectionalKill()
+    if not getgenv().DirectionalKill then return end
 
     local camPos = Camera.CFrame.Position
     local lookDir = Camera.CFrame.LookVector
@@ -55,21 +243,13 @@ RunService.Heartbeat:Connect(function()
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr == LocalPlayer then continue end
         local char = plr.Character
-        local hd = head(char)
-        local h = hum(char)
+        local hd = char and char:FindFirstChild("Head")
+        local h = char and char:FindFirstChildOfClass("Humanoid")
         if not hd or not h or h.Health <= 0 then continue end
 
         local vec = hd.Position - camPos
         local dist = vec.Magnitude
-        if dist > cfg.killDist then continue end
-        if lookDir:Dot(vec.Unit) < 0.98 then continue end -- 11° cone
-
-        -- Wallbang check
-        if not cfg.wallbang then
-            local ray = Ray.new(camPos, vec.Unit * dist)
-            local hit = Workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
-            if hit and not hit:IsDescendantOf(char) then continue end
-        end
+        if lookDir:Dot(vec.Unit) < 0.95 then continue end -- Wider cone for directional kill
 
         -- Universal remote
         if ReplicatedStorage:FindFirstChild("Shoot") then
@@ -81,105 +261,163 @@ RunService.Heartbeat:Connect(function()
             if rem then rem:FireServer(plr, hd.Position) end
         end
     end
-end)
-
--------------------------------------------------
--- BRING ALL
--------------------------------------------------
-RunService.Heartbeat:Connect(function()
-    if not cfg.bringAll then return end
-    local myRoot = root(LocalPlayer.Character)
-    if not myRoot then return end
-
-    local targetPos = myRoot.Position + myRoot.CFrame.LookVector * cfg.bringDist
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer then continue end
-        local r = root(plr.Character)
-        if r then
-            r.CFrame = CFrame.new(targetPos + Vector3.new(math.random(-2,2),0,math.random(-2,2)))
-        end
-    end
-end)
-
--------------------------------------------------
--- INFINITE AMMO
--------------------------------------------------
-local function ammoLoop()
-    if not cfg.infAmmo then return end
-    local function scan(container)
-        for _, tool in ipairs(container:GetChildren()) do
-            if tool:IsA("Tool") then
-                for _, child in ipairs(tool:GetDescendants()) do
-                    if child.Name:lower():find("ammo") or child.Name:lower():find("clip") then
-                        child.Value = 9999
-                    end
-                end
-            end
-        end
-    end
-    scan(LocalPlayer.Backpack)
-    scan(LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait())
 end
-RunService.Heartbeat:Connect(ammoLoop)
-LocalPlayer.CharacterAdded:Connect(function(char) ammoLoop() end)
+
+RunService.Heartbeat:Connect(autoDirectionalKill)
 
 -------------------------------------------------
--- AUTO COLLECT
+-- 7. RAPID FIRE
 -------------------------------------------------
-RunService.Heartbeat:Connect(function()
-    if not cfg.collect then return end
-    local myRoot = root(LocalPlayer.Character)
-    if not myRoot then return end
-
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and (obj.Name:lower():find("coin") or obj.Name:lower():find("money") or obj.Name:lower():find("heal")) then
-            if (obj.Position - myRoot.Position).Magnitude <= 50 then
-                obj.CFrame = myRoot.CFrame
-            end
+Mouse.Button1Down:Connect(function()
+    if not getgenv().RapidFire then return end
+    while Mouse:IsMouseButtonPressed(0) and getgenv().RapidFire do
+        if ReplicatedStorage:FindFirstChild("Shoot") then
+            ReplicatedStorage.Shoot:FireServer()
         end
+        task.wait(0.1) -- Rapid fire rate
     end
 end)
 
 -------------------------------------------------
--- UI CONTROLS
+-- 8. UI SECTION
+------------------------------------------------
+CombatTab:AddToggle({
+    Name = "Silent Aimbot (Head)",
+    Default = false,
+    Callback = function(v)
+        getgenv().SilentAimEnabled = v
+        OrionLib:MakeNotification({
+            Name = "Aimbot",
+            Content = v and "Headshot Aimbot ENABLED" or "Headshot Aimbot DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Wallbang (Through Walls)",
+    Default = false,
+    Callback = function(v)
+        getgenv().WallbangEnabled = v
+        OrionLib:MakeNotification({
+            Name = "Wallbang",
+            Content = v and "Wallbang ENABLED" or "Wallbang DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Bring All Players",
+    Default = false,
+    Callback = function(v)
+        getgenv().BringAllEnabled = v
+        OrionLib:MakeNotification({
+            Name = "Bring Players",
+            Content = v and "Bring All ENABLED" or "Bring All DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddSlider({
+    Name = "Bring Distance",
+    Min = 1,
+    Max = 50,
+    Default = 5,
+    Color = Color3.fromRGB(255, 0, 0),
+    Increment = 1,
+    ValueName = "Studs",
+    Callback = function(v)
+        getgenv().BringDistance = v
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Infinite Ammo",
+    Default = false,
+    Callback = function(v)
+        getgenv().InfiniteAmmo = v
+        OrionLib:MakeNotification({
+            Name = "Ammo",
+            Content = v and "Infinite Ammo ENABLED" or "Ammo DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Anti-Detection",
+    Default = false,
+    Callback = function(v)
+        getgenv().AntiDetection = v
+        OrionLib:MakeNotification({
+            Name = "Stealth",
+            Content = v and "Anti-Detection ENABLED" or "Stealth DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddSlider({
+    Name = "FOV Radius",
+    Min = 10,
+    Max = 360,
+    Default = 180,
+    Color = Color3.fromRGB(0, 255, 0),
+    Increment = 1,
+    ValueName = "FOV",
+    Callback = function(v)
+        getgenv().FOV = v
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Directional Kill",
+    Default = false,
+    Callback = function(v)
+        getgenv().DirectionalKill = v
+        OrionLib:MakeNotification({
+            Name = "Directional Kill",
+            Content = v and "Directional Kill ENABLED" or "Directional Kill DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Rapid Fire",
+    Default = false,
+    Callback = function(v)
+        getgenv().RapidFire = v
+        OrionLib:MakeNotification({
+            Name = "Rapid Fire",
+            Content = v and "Rapid Fire ENABLED" or "Rapid Fire DISABLED",
+            Time = 3
+        })
+    end
+})
+
+AutoTab:AddToggle({
+    Name = "Auto Collect",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoCollect = v
+        OrionLib:MakeNotification({
+            Name = "Collector",
+            Content = v and "Auto Collect ENABLED" or "Collector DISABLED",
+            Time = 3
+        })
+    end
+})
+
 -------------------------------------------------
-CombatTab:AddToggle({Name = "Auto-Kill on Camera", Default = false,
-    Callback = function(v)
-        cfg.autoKill = v
-        OrionLib:MakeNotification({Name = "Auto-Kill", Content = v and "ON" or "OFF", Time = 3})
-    end})
-
-CombatTab:AddToggle({Name = "Wallbang", Default = true,
-    Callback = function(v) cfg.wallbang = v end})
-
-CombatTab:AddSlider({Name = "Kill Distance", Min = 50, Max = 5000, Default = 1000,
-    Color = Color3.new(1,0,0), Increment = 50, ValueName = "studs",
-    Callback = function(v) cfg.killDist = v end})
-
-CombatTab:AddToggle({Name = "Bring All Players", Default = false,
-    Callback = function(v)
-        cfg.bringAll = v
-        OrionLib:MakeNotification({Name = "Bring", Content = v and "ON" or "OFF", Time = 3})
-    end})
-
-CombatTab:AddSlider({Name = "Bring Distance", Min = 1, Max = 50, Default = 5,
-    Color = Color3.new(1,1,0), Increment = 1, ValueName = "studs",
-    Callback = function(v) cfg.bringDist = v end})
-
-CombatTab:AddToggle({Name = "Infinite Ammo", Default = false,
-    Callback = function(v)
-        cfg.infAmmo = v
-        OrionLib:MakeNotification({Name = "Ammo", Content = v and "ON" or "OFF", Time = 3})
-    end})
-
-AutoTab:AddToggle({Name = "Auto Collect Items", Default = false,
-    Callback = function(v)
-        cfg.collect = v
-        OrionLib:MakeNotification({Name = "Collector", Content = v and "ON" or "OFF", Time = 3})
-    end})
-
+-- INIT
 -------------------------------------------------
--- LOADED
--------------------------------------------------
-OrionLib:MakeNotification({Name = "Vortex Hub", Content = "Ready – point camera to kill!", Time = 5})
+OrionLib:MakeNotification({
+    Name = "Vortex Hub V3",
+    Content = "All features loaded successfully!",
+    Time = 5
+})
+
 OrionLib:Init()
