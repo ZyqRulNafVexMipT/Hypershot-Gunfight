@@ -1,5 +1,5 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V5  |  STABLE ESP + IMPROVED AI
+-- VORTEX HUB V7  |  ULTRA GACOR EDITION
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
@@ -16,7 +16,7 @@ local Mouse = LocalPlayer:GetMouse()
 
 -- Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub V2.5| BEST HYPERSHOT SCRIPT",
+    Name = "Vortex Hub V2.6| HYPERSHOT BEST SCRIPT",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "Vortex_Configs"
@@ -25,6 +25,8 @@ local Window = OrionLib:MakeWindow({
 -- Tabs
 local CombatTab = Window:MakeTab({Name = "Combat"})
 local ESPTab = Window:MakeTab({Name = "ESP"})
+local UtilityTab = Window:MakeTab({Name = "Utilities"})
+local AutoFarmTab = Window:MakeTab({Name = "Auto Farm"})
 
 -- ESP Configuration
 local ESP_Config = {
@@ -38,9 +40,12 @@ local ESP_Config = {
 -- Drawing Table
 local Drawings = {}
 
+-- Credits
+local CreatorLabel = CombatTab:AddLabel("Owner: VortX Hub")
+
 -- Functions for ESP
 local function CreateESPBox(player)
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    if not player.Character or player not.Character:FindFirstChild("HumanoidRootPart") then return end
     local rootPart = player.Character.HumanoidRootPart
     
     local espBox = Drawing.new("Square")
@@ -189,21 +194,44 @@ getgenv().AntiDetection      = false
 getgenv().BringAllEnabled    = false
 getgenv().BringDistance      = 5
 getgenv().FOV                = 180
+getgenv().AutoJump           = false
+getgenv().NoClip             = false
+getgenv().AntiRecoil         = false
+getgenv().AutoSpawn          = false
+getgenv().AutoFarm           = false
+getgenv().AutoOpenChest      = false
+getgenv().AutoSpinWheel      = false
+getgenv().AutoCollectAwards  = false
 
--- AI Constants
+-- Constants
 local Gravity = workspace.Gravity
 local BulletSpeed = 4500
 
 -------------------------------------------------
---Bring All Players (Original Method)
+-- Bring All Players
 -------------------------------------------------
+local function GetMyPosition()
+    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local Root = Character:FindFirstChild("HumanoidRootPart")
+    if Root then
+        return Root.Position + (Root.CFrame.LookVector * getgenv().BringDistance)
+    end
+    return nil
+end
+
 local function BringPlayers()
     if not getgenv().BringAllEnabled then return end
-    local targetPos = (LocalPlayer.Character.HumanoidRootPart.Position + LocalPlayer.Character.HumanoidRootPart.CFrame.LookVector * 5)
     
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
-            plr.Character:FindFirstChild("HumanoidRootPart").CFrame = CFrame.new(targetPos)
+    local MyPos = GetMyPosition()
+    if not MyPos then return end
+    
+    -- Bring actual players
+    for _, Player in ipairs(Players:GetPlayers()) do
+        if Player ~= LocalPlayer and Player.Character then
+            local Root = Player.Character:FindFirstChild("HumanoidRootPart")
+            if Root then
+                Root.CFrame = CFrame.new(MyPos + Vector3.new(math.random(-2,2), 0, math.random(-2,2)))
+            end
         end
     end
 end
@@ -266,6 +294,22 @@ getrawmetatable(game).__index = newcclosure(function(t, k)
 end)
 
 -------------------------------------------------
+-- WALLBANG REMAKE
+-------------------------------------------------
+local function CheckWallbang(TargetPos)
+    if getgenv().WallbangEnabled then return true end
+    
+    local RaycastParams = RaycastParams.new()
+    RaycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    RaycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    
+    local Direction = (TargetPos - Camera.CFrame.Position).Unit
+    local RaycastResult = Workspace:Raycast(Camera.CFrame.Position, Direction * 5000, RaycastParams)
+    
+    return not RaycastResult or RaycastResult.Instance:IsDescendantOf(TargetPos.Parent)
+end
+
+-------------------------------------------------
 -- REMADE INFINITE AMMO
 -------------------------------------------------
 local function UpdateAmmo()
@@ -289,7 +333,7 @@ end
 RunService.Heartbeat:Connect(UpdateAmmo)
 
 -------------------------------------------------
--- AUTO COLLECT
+-- AUTO COLLECT (FAPI)
 -------------------------------------------------
 local function AutoCollectItems()
     if not getgenv().AutoCollect then return end
@@ -320,6 +364,146 @@ oldIndex = hookmetamethod(game, "__index", newcclosure(function(t, k)
     end
     return oldIndex(t, k)
 end))
+
+-------------------------------------------------
+-- NO CLIP
+-------------------------------------------------
+local function NoClip()
+    if not getgenv().NoClip then return end
+    if not LocalPlayer.Character then return end
+    
+    for _, part in ipairs(LocalPlayer.Character:GetChildren()) do
+        if part:IsA("BasePart") and part.CanCollide then
+            part.CanCollide = false
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(NoClip)
+
+-------------------------------------------------
+-- ANTI-RECOIL
+-------------------------------------------------
+local function AntiRecoil()
+    if not getgenv().AntiRecoil then return end
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Humanoid") then return end
+    
+    LocalPlayer.Character.Humanoid.PlatformStand = true
+end
+
+RunService.Heartbeat:Connect(AntiRecoil)
+
+-------------------------------------------------
+-- AUTO SPAWN
+-------------------------------------------------
+local function AutoSpawn()
+    if not getgenv().AutoSpawn then return end
+    if not LocalPlayer.Character then
+        -- Find and use spawn point
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("SpawnLocation") or (obj:IsA("Part") and obj.Name:lower():find("spawn")) then
+                task.wait(1) -- Wait for respawn
+                LocalPlayer.CharacterAdded:Wait().HumanoidRootPart.CFrame = obj.CFrame
+                break
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(AutoSpawn)
+
+-------------------------------------------------
+-- AUTO FARM
+-------------------------------------------------
+local function AutoFarm()
+    if not getgenv().AutoFarm then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local root = char.HumanoidRootPart
+    if not root then return end
+    
+    -- Farm logic
+    for _, mob in ipairs(Workspace:GetDescendants()) do
+        if mob:IsA("Model") and (mob.Name:lower():find("mob") or mob.Name:lower():find("enemy")) then
+            if mob:FindFirstChild("HumanoidRootPart") then
+                root.CFrame = CFrame.new(mob.HumanoidRootPart.Position + Vector3.new(0, 5, 0))
+                task.wait(0.5)
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(AutoFarm)
+
+-------------------------------------------------
+-- AUTO OPEN CHEST
+-------------------------------------------------
+local function AutoOpenChest()
+    if not getgenv().AutoOpenChest then return end
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") and (obj.Name:lower():find("chest") or obj.Name:lower():find("treasure")) then
+            if obj:FindFirstChild("UIButton") then
+                obj:UIButton()
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(AutoOpenChest)
+
+-------------------------------------------------
+-- AUTO SPIN WHEEL
+-------------------------------------------------
+local function AutoSpinWheel()
+    if not getgenv().AutoSpinWheel then return end
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name:lower():find("wheel") then
+            if obj:FindFirstChild("SpinButton") then
+                obj:SpinButton()
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(AutoSpinWheel)
+
+-------------------------------------------------
+-- AUTO COLLECT AWARDS
+-------------------------------------------------
+local function AutoCollectAwards()
+    if not getgenv().AutoCollectAwards then return end
+    for _, obj in ipairs(game:GetService("GuiService"):GetAllGuiObjects()) do
+        if obj:IsA("Frame") and obj.Name:lower():find("award") then
+            for _, button in ipairs(obj:GetDescendants()) do
+                if button:IsA("TextButton") and button.Text:lower():find("collect") then
+                    button:Fire()
+                end
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(AutoCollectAwards)
+
+-------------------------------------------------
+-- RAPID FIRE
+-------------------------------------------------
+local function RapidFire()
+    if not getgenv().RapidFire then return end
+    while getgenv().RapidFire and Mouse:IsMouseButtonPressed(0) do
+        if ReplicatedStorage:FindFirstChild("Shoot") then
+            ReplicatedStorage.Shoot:FireServer()
+            task.wait(0.1)
+        end
+    end
+end
+
+Mouse.Button1Down:Connect(function()
+    if getgenv().RapidFire then
+        RapidFire()
+    end
+end)
 
 -------------------------------------------------
 -- UI SECTION
@@ -415,7 +599,46 @@ CombatTab:AddSlider({
     end
 })
 
-AutoTab:AddToggle({
+CombatTab:AddToggle({
+    Name = "Anti-Recoil",
+    Default = false,
+    Callback = function(v)
+        getgenv().AntiRecoil = v
+        OrionLib:MakeNotification({
+            Name = "Anti-Recoil",
+            Content = v and "Anti-Recoil ENABLED" or "Anti-Recoil DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Auto Spawn",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoSpawn = v
+        OrionLib:MakeNotification({
+            Name = "Auto Spawn",
+            Content = v and "Auto Spawn ENABLED" or "Auto Spawn DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Rapid Fire",
+    Default = false,
+    Callback = function(v)
+        getgenv().RapidFire = v
+        OrionLib:MakeNotification({
+            Name = "Rapid Fire",
+            Content = v and "Rapid Fire ENABLED" or "Rapid Fire DISABLED",
+            Time = 3
+        })
+    end
+})
+
+UtilityTab:AddToggle({
     Name = "Auto Collect",
     Default = false,
     Callback = function(v)
@@ -428,8 +651,20 @@ AutoTab:AddToggle({
     end
 })
 
--- Additional Features
-CombatTab:AddToggle({
+UtilityTab:AddToggle({
+    Name = "No Clip",
+    Default = false,
+    Callback = function(v)
+        getgenv().NoClip = v
+        OrionLib:MakeNotification({
+            Name = "No Clip",
+            Content = v and "No Clip ENABLED" or "No Clip DISABLED",
+            Time = 3
+        })
+    end
+})
+
+UtilityTab:AddToggle({
     Name = "Auto Jump",
     Default = false,
     Callback = function(v)
@@ -450,9 +685,61 @@ Mouse.KeyDown:Connect(function(k)
     end
 end)
 
+AutoFarmTab:AddToggle({
+    Name = "Auto Farm",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoFarm = v
+        OrionLib:MakeNotification({
+            Name = "Auto Farm",
+            Content = v and "Auto Farm ENABLED" or "Auto Farm DISABLED",
+            Time = 3
+        })
+    end
+})
+
+AutoFarmTab:AddToggle({
+    Name = "Auto Open Chest",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoOpenChest = v
+        OrionLib:MakeNotification({
+            Name = "Auto Open Chest",
+            Content = v and "Auto Open Chest ENABLED" or "Auto Open Chest DISABLED",
+            Time = 3
+        })
+    end
+})
+
+AutoFarmTab:AddToggle({
+    Name = "Auto Spin Wheel",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoSpinWheel = v
+        OrionLib:MakeNotification({
+            Name = "Auto Spin Wheel",
+            Content = v and "Auto Spin Wheel ENABLED" or "Auto Spin Wheel DISABLED",
+            Time = 3
+        })
+    end
+})
+
+AutoFarmTab:AddToggle({
+    Name = "Auto Collect Awards",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoCollectAwards = v
+        OrionLib:MakeNotification({
+            Name = "Auto Collect Awards",
+            Content = v and "Auto Collect Awards ENABLED" or "Auto Collect Awards DISABLED",
+            Time = 3
+        })
+    end
+})
+
 OrionLib:MakeNotification({
-    Name = "Vortex Hub V2.5 BETA",
-    Content = "Features loaded successfully!",
+    Name = "VortX Hub V2.6",
+    Content = "Ultra Gacor Features Loaded!",
     Time = 5
 })
 
