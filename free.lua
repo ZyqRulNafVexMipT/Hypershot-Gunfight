@@ -1,5 +1,5 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V2.8 | ULTIMATE EDITION
+-- VORTEX HUB V2.9 | ULTIMATE EDITION
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
@@ -16,10 +16,11 @@ local Mouse = LocalPlayer:GetMouse()
 
 -- Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub V2.8 | Ultimate Edition",
+    Name = "Vortex Hub V2.9 | Ultimate Edition",
     HidePremium = false,
     SaveConfig = true,
-    ConfigFolder = "Vortex_Configs"
+    ConfigFolder = "Vortex_Configs",
+    Theme = "Nightmare"
 })
 
 -- Tabs
@@ -27,7 +28,7 @@ local CombatTab = Window:MakeTab({Name = "Combat"})
 local ESPTab = Window:MakeTab({Name = "ESP"})
 local UtilityTab = Window:MakeTab({Name = "Utilities"})
 local OpenTab = Window:MakeTab({Name = "Open"})
-local Gun ModsTab = Window:MakeTab({Name = "Gun Mods"})
+local GunModsTab = Window:MakeTab({Name = "Gun Mods"})
 
 -- ESP Configuration
 local ESP_Config = {
@@ -947,8 +948,8 @@ OpenTab:AddToggle({
     end
 })
 
-Gun ModsTab:AddLabel("Anti Recoil & Spread Settings")
-Gun ModsTab:AddToggle({
+GunModsTab:AddLabel("Anti Recoil & Spread Settings")
+GunModsTab:AddToggle({
     Name = "Enable Gun Mods",
     Default = false,
     Callback = function(v)
@@ -962,7 +963,7 @@ Gun ModsTab:AddToggle({
 })
 
 OrionLib:MakeNotification({
-    Name = "Vortex Hub V2.8",
+    Name = "Vortex Hub V2.9",
     Content = "All features loaded successfully!",
     Time = 5
 })
