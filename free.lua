@@ -1,5 +1,5 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V3  |  AI WALLBANG HEADSHOT + BRING ALL + DIRECTIONAL KILL
+-- VORTEX HUB V4  |  ESP + IMPROVED AI
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
@@ -16,7 +16,7 @@ local Mouse = LocalPlayer:GetMouse()
 
 -- Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub V3 | Bring All + Headshot + Directional Kill",
+    Name = "Vortex Hub V4 | ESP + Advanced AI",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "Vortex_Configs"
@@ -24,9 +24,171 @@ local Window = OrionLib:MakeWindow({
 
 -- Tabs
 local CombatTab = Window:MakeTab({Name = "Combat"})
-local AutoTab   = Window:MakeTab({Name = "Auto"})
+local ESP_Tab = Window:MakeTab({Name = "ESP"})
 
--- Globals
+-- ESP Configuration
+local ESP_Config = {
+    Enabled = false,
+    Thickness = 1.5,
+    Color = Color3.fromRGB(255, 0, 0),
+    Transparency = 0.75,
+    TeamCheck = false
+}
+
+-- Drawing Table
+local Drawings = {}
+
+-- Functions for ESP
+local function CreateESPBox(player)
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    local rootPart = player.Character.HumanoidRootPart
+    local headPart = player.Character.Head
+    
+    local espBox = Drawing.new("Square")
+    espBox.Visible = false
+    espBox.Thickness = ESP_Config.Thickness
+    espBox.Color = ESP_Config.Color
+    espBox.Transparency = ESP_Config.Transparency
+    espBox.Filled = false
+    
+    local espName = Drawing.new("Text")
+    espName.Visible = false
+    espName.Color = ESP_Config.Color
+    espName.Outline = true
+    espName.OutlineColor = Color3.new(0, 0, 0)
+    espName.Font = 2
+    espName.TextSize = 14
+    
+    table.insert(Drawings, {espBox, espName, player})
+    
+    RunService.Heartbeat:Connect(function()
+        if not ESP_Config.Enabled or not rootPart or not rootPart.Parent or rootPart.Parent ~= player.Character then
+            espBox.Visible = false
+            espName.Visible = false
+            return
+        end
+        
+        if ESP_Config.TeamCheck and player.Team == LocalPlayer.Team then
+            espBox.Visible = false
+            espName.Visible = false
+            return
+        end
+        
+        local Vector, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+        if onScreen then
+            local Size = Vector2.new(150, 300)
+            espBox.Size = Size
+            espBox.Position = Vector2.new(Vector.X - Size.X / 2, Vector.Y - Size.Y / 2)
+            espBox.Visible = true
+            
+            espName.Position = Vector2.new(Vector.X, Vector.Y - 30)
+            espName.Text = player.Name
+            espName.Visible = true
+        else
+            espBox.Visible = false
+            espName.Visible = false
+        end
+    end)
+end
+
+local function ToggleESP(v)
+    ESP_Config.Enabled = v
+    for _, drawing in ipairs(Drawings) do
+        drawing[1].Visible = v and drawing[3].Character and drawing[3].Character:FindFirstChild("HumanoidRootPart") and (not ESP_Config.TeamCheck or drawing[3].Team ~= LocalPlayer.Team)
+        drawing[2].Visible = v and drawing[3].Character and drawing[3].Character:FindFirstChild("HumanoidRootPart") and (not ESP_Config.TeamCheck or drawing[3].Team ~= LocalPlayer.Team)
+    end
+end
+
+-- ESP UI
+ESP_Tab:AddToggle({
+    Name = "Enable ESP",
+    Default = false,
+    Callback = ToggleESP
+})
+
+ESP_Tab:AddSlider({
+    Name = "ESP Thickness",
+    Min = 0.5,
+    Max = 5,
+    Default = 1.5,
+    Color = Color3.fromRGB(255, 0, 0),
+    Increment = 0.1,
+    ValueName = "px",
+    Callback = function(v)
+        ESP_Config.Thickness = v
+        for _, drawing in ipairs(Drawings) do
+            drawing[1].Thickness = v
+        end
+    end
+})
+
+ESP_Tab:AddColorpicker({
+    Name = "ESP Color",
+    Default = Color3.fromRGB(255, 0, 0),
+    Callback = function(v)
+        ESP_Config.Color = v
+        for _, drawing in ipairs(Drawings) do
+            drawing[1].Color = v
+            drawing[2].Color = v
+        end
+    end
+})
+
+ESP_Tab:AddSlider({
+    Name = "ESP Transparency",
+    Min = 0,
+    Max = 1,
+    Default = 0.75,
+    Color = Color3.fromRGB(255, 0, 0),
+    Increment = 0.01,
+    ValueName = "Transparency",
+    Callback = function(v)
+        ESP_Config.Transparency = v
+        for _, drawing in ipairs(Drawings) do
+            drawing[1].Transparency = v
+        end
+    end
+})
+
+ESP_Tab:AddToggle({
+    Name = "Team Check",
+    Default = false,
+    Callback = function(v)
+        ESP_Config.TeamCheck = v
+    end
+})
+
+-- Create ESP Boxes for all players
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        CreateESPBox(player)
+    end
+end
+
+-- Add ESP Boxes for new players
+Players.PlayerAdded:Connect(function(player)
+    task.wait(1) -- Wait for character to load
+    CreateESPBox(player)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    for i, drawing in ipairs(Drawings) do
+        if drawing[3] == player then
+            table.remove(Drawings, i)
+            drawing[1]:Remove()
+            drawing[2]:Remove()
+            break
+        end
+    end
+end)
+
+-- This is part one of the script
+-- Continue with part two for the remaining features
+-- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+-- VORTEX HUB V4  |  ESP + IMPROVED AI (PART 2)
+-- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+-- Global Flags
 getgenv().SilentAimEnabled   = false
 getgenv().WallbangEnabled    = false
 getgenv().InfiniteAmmo       = false
@@ -45,7 +207,7 @@ local BulletSpeed = 4500
 local PredictionTime = 0.1337
 
 -------------------------------------------------
--- 1. BRING ALL PLAYERS
+-- Bring All Players
 -------------------------------------------------
 local function GetMyPosition()
     local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -86,7 +248,7 @@ end
 RunService.Heartbeat:Connect(BringPlayers)
 
 -------------------------------------------------
--- 2. AI WALLBANG HEADSHOT
+-- AI WALLBANG HEADSHOT
 -------------------------------------------------
 local function PredictHead(Player)
     local Character = Player.Character
@@ -170,7 +332,7 @@ OldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(Self, ...)
 end))
 
 -------------------------------------------------
--- 3. INFINITE AMMO (FORCE)
+-- INFINITE AMMO (FORCE)
 ------------------------------------------------
 local function ForceInfiniteAmmo()
     if not getgenv().InfiniteAmmo then return end
@@ -198,7 +360,7 @@ RunService.Heartbeat:Connect(ForceInfiniteAmmo)
 LocalPlayer.CharacterAdded:Connect(ForceInfiniteAmmo)
 
 -------------------------------------------------
--- 4. AUTO COLLECT
+-- AUTO COLLECT
 -------------------------------------------------
 local function AutoCollectItems()
     if not getgenv().AutoCollect then return end
@@ -221,7 +383,7 @@ end
 RunService.Heartbeat:Connect(AutoCollectItems)
 
 -------------------------------------------------
--- 5. ANTI-DETECTION
+-- ANTI-DETECTION
 ------------------------------------------------
 local OldIndex = nil
 OldIndex = hookmetamethod(game, "__index", newcclosure(function(Self, Key)
@@ -232,7 +394,7 @@ OldIndex = hookmetamethod(game, "__index", newcclosure(function(Self, Key)
 end))
 
 -------------------------------------------------
--- 6. DIRECTIONAL KILL
+-- DIRECTIONAL KILL
 -------------------------------------------------
 local function autoDirectionalKill()
     if not getgenv().DirectionalKill then return end
@@ -266,7 +428,7 @@ end
 RunService.Heartbeat:Connect(autoDirectionalKill)
 
 -------------------------------------------------
--- 7. RAPID FIRE
+-- RAPID FIRE
 -------------------------------------------------
 Mouse.Button1Down:Connect(function()
     if not getgenv().RapidFire then return end
@@ -279,7 +441,7 @@ Mouse.Button1Down:Connect(function()
 end)
 
 -------------------------------------------------
--- 8. UI SECTION
+-- UI SECTION
 ------------------------------------------------
 CombatTab:AddToggle({
     Name = "Silent Aimbot (Head)",
@@ -363,61 +525,4 @@ CombatTab:AddSlider({
     Name = "FOV Radius",
     Min = 10,
     Max = 360,
-    Default = 180,
-    Color = Color3.fromRGB(0, 255, 0),
-    Increment = 1,
-    ValueName = "FOV",
-    Callback = function(v)
-        getgenv().FOV = v
-    end
-})
-
-CombatTab:AddToggle({
-    Name = "Directional Kill",
-    Default = false,
-    Callback = function(v)
-        getgenv().DirectionalKill = v
-        OrionLib:MakeNotification({
-            Name = "Directional Kill",
-            Content = v and "Directional Kill ENABLED" or "Directional Kill DISABLED",
-            Time = 3
-        })
-    end
-})
-
-CombatTab:AddToggle({
-    Name = "Rapid Fire",
-    Default = false,
-    Callback = function(v)
-        getgenv().RapidFire = v
-        OrionLib:MakeNotification({
-            Name = "Rapid Fire",
-            Content = v and "Rapid Fire ENABLED" or "Rapid Fire DISABLED",
-            Time = 3
-        })
-    end
-})
-
-AutoTab:AddToggle({
-    Name = "Auto Collect",
-    Default = false,
-    Callback = function(v)
-        getgenv().AutoCollect = v
-        OrionLib:MakeNotification({
-            Name = "Collector",
-            Content = v and "Auto Collect ENABLED" or "Collector DISABLED",
-            Time = 3
-        })
-    end
-})
-
--------------------------------------------------
--- INIT
--------------------------------------------------
-OrionLib:MakeNotification({
-    Name = "Vortex Hub V3",
-    Content = "All features loaded successfully!",
-    Time = 5
-})
-
-OrionLib:Init()
+    Default
