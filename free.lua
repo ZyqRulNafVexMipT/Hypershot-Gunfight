@@ -1,7 +1,27 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V7  |  ULTRA GACOR EDITION
+-- VORTEX HUB V8 | ULTIMATE EDITION
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
+
+-- Orion Library Initialization
+local OrionLib = nil
+local function InitializeOrion()
+    local Success, Result = pcall(function()
+        return loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
+    end)
+    
+    if Success and Result then
+        OrionLib = Result
+    else
+        warn("OrionLib failed to load. Please check your internet connection or try again later.")
+    end
+end
+
+InitializeOrion()
+
+-- If OrionLib failed to load, don't proceed
+if not OrionLib then
+    return
+end
 
 -- Services
 local Players = game:GetService("Players")
@@ -14,9 +34,9 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
--- Window
+-- Main Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub V2.6| HYPERSHOT BEST SCRIPT",
+    Name = "Vortex Hub V8 | Ultimate Edition",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "Vortex_Configs"
@@ -37,15 +57,12 @@ local ESP_Config = {
     TeamCheck = false
 }
 
--- Drawing Table
+-- Drawing Management
 local Drawings = {}
-
--- Credits
-local CreatorLabel = CombatTab:AddLabel("Owner: VortX Hub")
 
 -- Functions for ESP
 local function CreateESPBox(player)
-    if not player.Character or player not.Character:FindFirstChild("HumanoidRootPart") then return end
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
     local rootPart = player.Character.HumanoidRootPart
     
     local espBox = Drawing.new("Square")
@@ -202,6 +219,7 @@ getgenv().AutoFarm           = false
 getgenv().AutoOpenChest      = false
 getgenv().AutoSpinWheel      = false
 getgenv().AutoCollectAwards  = false
+getgenv().RapidFire          = false
 
 -- Constants
 local Gravity = workspace.Gravity
@@ -403,7 +421,9 @@ local function AutoSpawn()
         for _, obj in ipairs(Workspace:GetDescendants()) do
             if obj:IsA("SpawnLocation") or (obj:IsA("Part") and obj.Name:lower():find("spawn")) then
                 task.wait(1) -- Wait for respawn
-                LocalPlayer.CharacterAdded:Wait().HumanoidRootPart.CFrame = obj.CFrame
+                if LocalPlayer.Character then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = obj.CFrame
+                end
                 break
             end
         end
@@ -489,19 +509,14 @@ RunService.Heartbeat:Connect(AutoCollectAwards)
 -------------------------------------------------
 -- RAPID FIRE
 -------------------------------------------------
-local function RapidFire()
-    if not getgenv().RapidFire then return end
-    while getgenv().RapidFire and Mouse:IsMouseButtonPressed(0) do
-        if ReplicatedStorage:FindFirstChild("Shoot") then
-            ReplicatedStorage.Shoot:FireServer()
-            task.wait(0.1)
-        end
-    end
-end
-
 Mouse.Button1Down:Connect(function()
     if getgenv().RapidFire then
-        RapidFire()
+        while getgenv().RapidFire and Mouse:IsMouseButtonPressed(0) do
+            if ReplicatedStorage:FindFirstChild("Shoot") then
+                ReplicatedStorage.Shoot:FireServer()
+                task.wait(0.1)
+            end
+        end
     end
 end)
 
@@ -738,8 +753,8 @@ AutoFarmTab:AddToggle({
 })
 
 OrionLib:MakeNotification({
-    Name = "VortX Hub V2.6",
-    Content = "Ultra Gacor Features Loaded!",
+    Name = "Vortex Hub V8",
+    Content = "All features loaded successfully!",
     Time = 5
 })
 
