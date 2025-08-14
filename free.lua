@@ -1,5 +1,5 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V11 | ULTIMATE EDITION
+-- VORTEX HUB V2.6 | ULTIMATE EDITION
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
@@ -13,7 +13,7 @@ local Mouse = LocalPlayer:GetMouse()
 
 -- Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub V11 | Ultimate Edition",
+    Name = "Vortex Hub V2.6 | Ultimate Edition",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "Vortex_Configs"
@@ -893,7 +893,7 @@ AutoFarmTab:AddToggle({
 })
 
 OrionLib:MakeNotification({
-    Name = "Vortex Hub V11",
+    Name = "Vortex Hub V2.6",
     Content = "All features loaded successfully!",
     Time = 5
 })
