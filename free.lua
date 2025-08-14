@@ -1,5 +1,5 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V8 | ULTIMATE EDITION
+-- VORTEX HUB V9  |  ULTIMATE EDITION
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 -- Orion Library Initialization
@@ -36,7 +36,7 @@ local Mouse = LocalPlayer:GetMouse()
 
 -- Main Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub V8 | Ultimate Edition",
+    Name = "Vortex Hub V9 | Ultimate Edition",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "Vortex_Configs"
@@ -206,7 +206,9 @@ end)
 getgenv().SilentAimEnabled   = false
 getgenv().WallbangEnabled    = false
 getgenv().InfiniteAmmo       = false
-getgenv().AutoCollect        = false
+getgenv().AutoCollectCoins   = false
+getgenv().AutoCollectHeals   = false
+getgenv().AutoCollectWeapons = false
 getgenv().AntiDetection      = false
 getgenv().BringAllEnabled    = false
 getgenv().BringDistance      = 5
@@ -220,6 +222,9 @@ getgenv().AutoOpenChest      = false
 getgenv().AutoSpinWheel      = false
 getgenv().AutoCollectAwards  = false
 getgenv().RapidFire          = false
+getgenv().HitboxExpander     = false
+getgenv().KillAura           = false
+getgenv().NoCooldown         = false
 
 -- Constants
 local Gravity = workspace.Gravity
@@ -245,12 +250,22 @@ local function BringPlayers()
     
     -- Bring actual players
     for _, Player in ipairs(Players:GetPlayers()) do
-        if Player ~= LocalPlayer and Player.Character then
+        if ~= Player LocalPlayer and Player.Character then
             local Root = Player.Character:FindFirstChild("HumanoidRootPart")
             if Root then
                 Root.CFrame = CFrame.new(MyPos + Vector3.new(math.random(-2,2), 0, math.random(-2,2)))
             end
         end
+    end
+    
+    -- Bring mobs/NPCs if they exist
+    local MobsFolder = Workspace:FindFirstChild("Mobs") or Workspace:FindFirstChild("NPCs")
+    if MobsFolder then
+        for _, Mob in ipairs(MobsFolder:GetChildren()) do
+            if Mob:IsA("Model") and Mob.PrimaryPart then
+                Mob:SetPrimaryPartCFrame(CFrame.new(MyPos))
+            end
+ end       
     end
 end
 
@@ -276,7 +291,7 @@ end
 local function GetTarget()
     local closest, minDist = nil, getgenv().FOV
     
-    for _, plr in ipairs(Players:GetPlayers()) do
+    for _, plr ipairs in(Players:GetPlayers()) do
         if plr == LocalPlayer then continue end
         local char = plr.Character
         if not char or not char:FindFirstChild("Head") then continue end
@@ -351,10 +366,10 @@ end
 RunService.Heartbeat:Connect(UpdateAmmo)
 
 -------------------------------------------------
--- AUTO COLLECT (FAPI)
+-- AUTO COLLECT ITEMS
 -------------------------------------------------
-local function AutoCollectItems()
-    if not getgenv().AutoCollect then return end
+local function AutoCollectCoins()
+    if not getgenv().AutoCollectCoins then return end
     local char = LocalPlayer.Character
     if not char then return end
     
@@ -362,7 +377,7 @@ local function AutoCollectItems()
     if not root then return end
     
     for _, item in ipairs(Workspace:GetDescendants()) do
-        if item:IsA("BasePart") and (item.Name:lower():find("coin") or item.Name:lower():find("heal")) then
+        if item:IsA("BasePart") and item.Name:lower():find("coin") then
             if (item.Position - root.Position).Magnitude <= 50 then
                 item.CFrame = root.CFrame
             end
@@ -370,7 +385,44 @@ local function AutoCollectItems()
     end
 end
 
-RunService.Heartbeat:Connect(AutoCollectItems)
+local function AutoCollectHeals()
+    if not getgenv().AutoCollectHeals then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local root = char.HumanoidRootPart
+    if not root then return end
+    
+    for _, item in ipairs(Workspace:GetDescendants()) do
+        if item:IsA("BasePart") and item.Name:lower():find("heal") then
+            if (item.Position - root.Position).Magnitude <= 50 then
+                item.CFrame = root.CFrame
+            end
+        end
+    end
+end
+
+local function AutoCollectWeapons()
+    if not getgenv().AutoCollectWeapons then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local root = char.HumanoidRootPart
+    if not root then return end
+    
+    for _, item in ipairs(Workspace:GetDescendants()) do
+        if item:IsA("Tool") and item.Parent == Workspace then
+            if (item.Handle.Position - root.Position).Magnitude <= 50 then
+                item:Clone().Parent = LocalPlayer.Backpack
+                item:Destroy()
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(AutoCollectCoins)
+RunService.Heartbeat:Connect(AutoCollectHeals)
+RunService.Heartbeat:Connect(AutoCollectWeapons)
 
 -------------------------------------------------
 -- ANTI-DETECTION
@@ -521,6 +573,61 @@ Mouse.Button1Down:Connect(function()
 end)
 
 -------------------------------------------------
+-- HITBOX EXPANDER
+-------------------------------------------------
+local function HitboxExpander()
+    if not getgenv().HitboxExpander then return end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local head = player.Character:FindFirstChild("Head")
+            if head then
+                head.Size = Vector3.new(8, 8, 8) -- Expand hitbox
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(HitboxExpander)
+
+-------------------------------------------------
+-- KILL AURA
+-------------------------------------------------
+local function KillAura()
+    if not getgenv().KillAura then return end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local targetPosition = player.Character.HumanoidRootPart.Position
+            if (LocalPlayer.Character.HumanoidRootPart.Position - targetPosition).Magnitude < 20 then
+                if ReplicatedStorage:FindFirstChild("Shoot") then
+                    ReplicatedStorage.Shoot:FireServer()
+                end
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(KillAura)
+
+-------------------------------------------------
+-- NO COOLDOWN
+-------------------------------------------------
+local function NoCooldown()
+    if not getgenv().NoCooldown then return end
+    for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+        if tool:IsA("Tool") then
+            tool.Cooldown = 0
+        end
+    end
+    for _, tool in ipairs(LocalPlayer.Character:GetChildren()) do
+        if tool:IsA("Tool") then
+            tool.Cooldown = 0
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(NoCooldown)
+
+-------------------------------------------------
 -- UI SECTION
 -------------------------------------------------
 CombatTab:AddToggle({
@@ -653,14 +760,79 @@ CombatTab:AddToggle({
     end
 })
 
-UtilityTab:AddToggle({
-    Name = "Auto Collect",
+CombatTab:AddToggle({
+    Name = "Hitbox Expander",
     Default = false,
     Callback = function(v)
-        getgenv().AutoCollect = v
+        getgenv().HitboxExpander = v
         OrionLib:MakeNotification({
-            Name = "Collector",
-            Content = v and "Auto Collect ENABLED" or "Collector DISABLED",
+            Name = "Hitbox Expander",
+            Content = v and "Hitbox Expander ENABLED" or "Hitbox Expander DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "Kill Aura",
+    Default = false,
+    Callback = function(v)
+        getgenv().KillAura = v
+        OrionLib:MakeNotification({
+            Name = "Kill Aura",
+            Content = v and "Kill Aura ENABLED" or "Kill Aura DISABLED",
+            Time = 3
+        })
+    end
+})
+
+CombatTab:AddToggle({
+    Name = "No Cooldown",
+    Default = false,
+    Callback = function(v)
+        getgenv().NoCooldown = v
+        OrionLib:MakeNotification({
+            Name = "No Cooldown",
+            Content = v and "No Cooldown ENABLED" or "No Cooldown DISABLED",
+            Time = 3
+        })
+    end
+})
+
+UtilityTab:AddToggle({
+    Name = "Auto Collect Coins",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoCollectCoins = v
+        OrionLib:MakeNotification({
+            Name = "Auto Collect Coins",
+            Content = v and "Auto Collect Coins ENABLED" or "Auto Collect Coins DISABLED",
+            Time = 3
+        })
+    end
+})
+
+UtilityTab:AddToggle({
+    Name = "Auto Collect Heals",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoCollectHeals = v
+        OrionLib:MakeNotification({
+            Name = "Auto Collect Heals",
+            Content = v and "Auto Collect Heals ENABLED" or "Auto Collect Heals DISABLED",
+            Time = 3
+        })
+    end
+})
+
+UtilityTab:AddToggle({
+    Name = "Auto Collect Weapons",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoCollectWeapons = v
+        OrionLib:MakeNotification({
+            Name = "Auto Collect Weapons",
+            Content = v and "Auto Collect Weapons ENABLED" or "Auto Collect Weapons DISABLED",
             Time = 3
         })
     end
@@ -753,7 +925,7 @@ AutoFarmTab:AddToggle({
 })
 
 OrionLib:MakeNotification({
-    Name = "Vortex Hub V8",
+    Name = "Vortex Hub V9",
     Content = "All features loaded successfully!",
     Time = 5
 })
