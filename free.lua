@@ -1,5 +1,5 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V2.7 | ULTIMATE EDITION
+-- VORTEX HUB V2.8 | ULTIMATE EDITION
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
@@ -16,7 +16,7 @@ local Mouse = LocalPlayer:GetMouse()
 
 -- Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub V2.7 | Ultimate Edition",
+    Name = "Vortex Hub V2.8 | Ultimate Edition",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "Vortex_Configs"
@@ -26,7 +26,8 @@ local Window = OrionLib:MakeWindow({
 local CombatTab = Window:MakeTab({Name = "Combat"})
 local ESPTab = Window:MakeTab({Name = "ESP"})
 local UtilityTab = Window:MakeTab({Name = "Utilities"})
-local AutoFarmTab = Window:MakeTab({Name = "Auto Farm"})
+local OpenTab = Window:MakeTab({Name = "Open"})
+local Gun ModsTab = Window:MakeTab({Name = "Gun Mods"})
 
 -- ESP Configuration
 local ESP_Config = {
@@ -456,16 +457,21 @@ end
 RunService.Heartbeat:Connect(NoClip)
 
 -------------------------------------------------
--- ANTI-RECOIL
+-- ANTI-RECOIL & GUN MODS
 -------------------------------------------------
-local function AntiRecoil()
-    if not getgenv().AntiRecoil then return end
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Humanoid") then return end
-    
-    LocalPlayer.Character.Humanoid.PlatformStand = true
+for _, v in next, getgc(true) do
+    if typeof(v) == 'table' and rawget(v, 'Spread') then
+        rawset(v, 'Spread', 0)
+        rawset(v, 'BaseSpread', 0)
+        rawset(v, 'MinCamRecoil', Vector3.new())
+        rawset(v, 'MaxCamRecoil', Vector3.new())
+        rawset(v, 'MinRotRecoil', Vector3.new())
+        rawset(v, 'MaxRotRecoil', Vector3.new())
+        rawset(v, 'MinTransRecoil', Vector3.new())
+        rawset(v, 'MaxTransRecoil', Vector3.new())
+        rawset(v, 'ScopeSpeed', 100)
+    end
 end
-
-RunService.Heartbeat:Connect(AntiRecoil)
 
 -------------------------------------------------
 -- AUTO SPAWN
@@ -489,7 +495,7 @@ end
 RunService.Heartbeat:Connect(AutoSpawn)
 
 -------------------------------------------------
--- AUTO FARM
+-- AUTO FARM (OPEN)
 -------------------------------------------------
 local function AutoFarm()
     if not getgenv().AutoFarm then return end
@@ -889,7 +895,7 @@ Mouse.KeyDown:Connect(function(k)
     end
 end)
 
-AutoFarmTab:AddToggle({
+OpenTab:AddToggle({
     Name = "Auto Farm",
     Default = false,
     Callback = function(v)
@@ -902,7 +908,7 @@ AutoFarmTab:AddToggle({
     end
 })
 
-AutoFarmTab:AddToggle({
+OpenTab:AddToggle({
     Name = "Auto Open Chest",
     Default = false,
     Callback = function(v)
@@ -915,7 +921,7 @@ AutoFarmTab:AddToggle({
     end
 })
 
-AutoFarmTab:AddToggle({
+OpenTab:AddToggle({
     Name = "Auto Spin Wheel",
     Default = false,
     Callback = function(v)
@@ -928,7 +934,7 @@ AutoFarmTab:AddToggle({
     end
 })
 
-AutoFarmTab:AddToggle({
+OpenTab:AddToggle({
     Name = "Auto Collect Awards",
     Default = false,
     Callback = function(v)
@@ -941,8 +947,22 @@ AutoFarmTab:AddToggle({
     end
 })
 
+Gun ModsTab:AddLabel("Anti Recoil & Spread Settings")
+Gun ModsTab:AddToggle({
+    Name = "Enable Gun Mods",
+    Default = false,
+    Callback = function(v)
+        getgenv().GunModsEnabled = v
+        OrionLib:MakeNotification({
+            Name = "Gun Mods",
+            Content = v and "Gun Mods ENABLED" or "Gun Mods DISABLED",
+            Time = 3
+        })
+    end
+})
+
 OrionLib:MakeNotification({
-    Name = "Vortex Hub V2.7",
+    Name = "Vortex Hub V2.8",
     Content = "All features loaded successfully!",
     Time = 5
 })
