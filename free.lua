@@ -1,19 +1,22 @@
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
--- VORTEX HUB V2.6 | ULTIMATE EDITION
+-- VORTEX HUB V2.7 | ULTIMATE EDITION
 -- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/1nig1htmare1234/SCRIPTS/main/Orion.lua"))()
 
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+
+-- Variables
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
 -- Window
 local Window = OrionLib:MakeWindow({
-    Name = "Vortex Hub V2.6 | Ultimate Edition",
+    Name = "Vortex Hub V2.7 | Ultimate Edition",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "Vortex_Configs"
@@ -204,6 +207,7 @@ getgenv().RapidFire          = false
 getgenv().HitboxExpander     = false
 getgenv().KillAura           = false
 getgenv().NoCooldown         = false
+getgenv().BigHead           = false
 
 -- Constants
 local Gravity = workspace.Gravity
@@ -251,74 +255,96 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -------------------------------------------------
--- Improved AI WALLBANG HEADSHOT
+-- Advanced AI Engine for Aimbot
 -------------------------------------------------
-local function PredictHead(player)
-    local char = player.Character
-    if not char or not head(char) then return nil end
+local function AdvancedAimbot()
+    if not getgenv().SilentAimEnabled then return end
     
-    local velocity = head(char).Velocity
-    local position = head(char).Position
+    local closestPlayer = nil
+    local closestDistance = getgenv().FOV
     
-    local distance = (position - Camera.CFrame.Position).Magnitude
-    local time = distance / BulletSpeed
-    
-    return position + velocity * time + Vector3.new(0, -0.5 * Gravity * time^2, 0)
-end
-
-local function GetTarget()
-    local closest, minDist = nil, getgenv().FOV
-    
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer then continue end
-        local char = plr.Character
-        if not char or not head(char) then continue end
+    -- Iterate through all players to find the closest one within FOV
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        if not player.Character or not player.Character:FindFirstChild("Head") then continue end
         
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then continue end
+        local targetHead = player.Character.Head
+        local targetPosition = targetHead.Position
+        local screenPosition, onScreen = Camera:WorldToViewportPoint(targetPosition)
         
-        local predPos = PredictHead(plr)
-        local screenPos, onScreen = Camera:WorldToViewportPoint(predPos)
+        -- Calculate distance from crosshair
+        local distanceFromCrosshair = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPosition.X, screenPosition.Y)).Magnitude
         
-        if onScreen then
-            local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-            if dist < minDist then
-                closest, minDist = plr, dist
-            end
+        -- Update closest player if within FOV and closer than current closest
+        if onScreen and distanceFromCrosshair < closestDistance then
+            closestPlayer = player
+            closestDistance = distanceFromCrosshair
         end
     end
     
-    return closest
+    -- If a valid target is found, predict head position
+    if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
+        local head = closestPlayer.Character.Head
+        local velocity = head.Velocity
+        local position = head.Position
+        
+        -- Calculate bullet travel time
+        local distanceToTarget = (position - Camera.CFrame.Position).Magnitude
+        local travelTime = distanceToTarget / BulletSpeed
+        
+        -- Predict future head position
+        local predictedPosition = position + velocity * travelTime + Vector3.new(0, -0.5 * Gravity * travelTime^2, 0)
+        
+        -- Apply aimbot
+        if getgenv().WallbangEnabled or CheckLineOfSight(predictedPosition) then
+            -- Set camera target to predicted head position
+            return {CurrentCamera = Camera, TargetPoint = predictedPosition}
+        end
+    end
+    
+    -- Function to check line of sight
+    function CheckLineOfSight(targetPosition)
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+        
+        local direction = (targetPosition - Camera.CFrame.Position).Unit
+        local raycastResult = Workspace:Raycast(Camera.CFrame.Position, direction * 5000, raycastParams)
+        
+        return not raycastResult or raycastResult.Instance:IsDescendantOf(targetPosition.Parent)
+    end
 end
 
+-- Hook into the index metamethod to hijack camera targeting
 local oldIndex = getrawmetatable(game).__index
 setreadonly(getrawmetatable(game), false)
 getrawmetatable(game).__index = newcclosure(function(t, k)
     if getgenv().SilentAimEnabled and k == "CurrentCamera" and t == workspace then
-        local plr = GetTarget()
-        if plr and plr.Character and head(plr.Character) then
-            local predPos = PredictHead(plr)
-            return {CurrentCamera = Camera, TargetPoint = predPos}
+        local aimbotResult = AdvancedAimbot()
+        if aimbotResult then
+            return aimbotResult
         end
     end
     return oldIndex(t, k)
 end)
 
 -------------------------------------------------
--- WALLBANG REMAKE
+-- BIG HEAD FEATURE
 -------------------------------------------------
-local function CheckWallbang(TargetPos)
-    if getgenv().WallbangEnabled then return true end
-    
-    local RaycastParams = RaycastParams.new()
-    RaycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-    RaycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    
-    local Direction = (TargetPos - Camera.CFrame.Position).Unit
-    local RaycastResult = Workspace:Raycast(Camera.CFrame.Position, Direction * 5000, RaycastParams)
-    
-    return not RaycastResult or RaycastResult.Instance:IsDescendantOf(TargetPos.Parent)
+local function BigHead()
+    if not getgenv().BigHead then return end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local head = player.Character:FindFirstChild("Head")
+            if head then
+                head.Size = Vector3.new(4, 4, 4) -- Make head larger
+                head.Transparency = 0.7 -- Make it slightly transparent for visibility
+            end
+        end
+    end
 end
+
+RunService.Heartbeat:Connect(BigHead)
 
 -------------------------------------------------
 -- REMADE INFINITE AMMO
@@ -557,7 +583,7 @@ local function HitboxExpander()
     if not getgenv().HitboxExpander then return end
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            local head = head(player.Character)
+            local head = player.Character:FindFirstChild("Head")
             if head then
                 head.Size = Vector3.new(8, 8, 8) -- Expand hitbox
             end
@@ -777,6 +803,19 @@ CombatTab:AddToggle({
     end
 })
 
+CombatTab:AddToggle({
+    Name = "Big Head",
+    Default = false,
+    Callback = function(v)
+        getgenv().BigHead = v
+        OrionLib:MakeNotification({
+            Name = "Big Head",
+            Content = v and "Big Head ENABLED" or "Big Head DISABLED",
+            Time = 3
+        })
+    end
+})
+
 UtilityTab:AddToggle({
     Name = "Auto Collect Coins",
     Default = false,
@@ -903,7 +942,7 @@ AutoFarmTab:AddToggle({
 })
 
 OrionLib:MakeNotification({
-    Name = "Vortex Hub V2.6",
+    Name = "Vortex Hub V2.7",
     Content = "All features loaded successfully!",
     Time = 5
 })
